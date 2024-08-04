@@ -24,7 +24,7 @@ jobs:
 
     - name: Run the main script
       working-directory: App
-      run: python retrieve_data.py
+      run: python Crop_productivity_indicators_Job1.py
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
