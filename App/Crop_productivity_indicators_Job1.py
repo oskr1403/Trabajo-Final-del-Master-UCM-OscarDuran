@@ -22,13 +22,13 @@ if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not AWS_REGION:
 dataset = "sis-agroproductivity-indicators"
 request = {
     'product_family': ['crop_productivity_indicators'],
-    'variable': ['crop_development_stage', 'total_above_ground_production', 'total_weight_storage_organs'],
+    'variable': ['crop_development_stage'],
     'crop_type': ['maize'],
     'year': '2023',
     'month': ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
-    'day': ['10', '20', '31'],
+    'day': ['10', '20', '28', '30', '31'],
     'growing_season': ['1st_season_per_campaign'],
-    'harvest_year': '2023',
+    'harvest_year': '2023'
     'data_format': 'zip'
 }
 
