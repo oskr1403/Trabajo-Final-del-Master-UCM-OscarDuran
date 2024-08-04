@@ -11,8 +11,8 @@ if not os.getenv("GITHUB_ACTIONS"):
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = "us-east-1"
-BUCKET_NAME = "geltonas.tech"
+AWS_REGION = "us-east-2"
+BUCKET_NAME = "trabajofinalmasterucmoscarduran"
 
 # Ensure AWS credentials and region are correctly set
 if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not AWS_REGION:
