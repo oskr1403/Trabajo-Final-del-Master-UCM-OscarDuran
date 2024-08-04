@@ -28,7 +28,7 @@ request = {
     'month': ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
     'day': ['10', '20', '28', '30', '31'],
     'growing_season': ['1st_season_per_campaign'],
-    'harvest_year': '2023'
+    'harvest_year': '2023',
     'data_format': 'zip'
 }
 
