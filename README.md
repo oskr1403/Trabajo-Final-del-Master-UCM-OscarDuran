@@ -33,3 +33,41 @@ Descarga de Datos: Utiliza la API de CDS para descargar los datos y los guarda e
 Validación y Subida a S3: Se verifica que el archivo no esté vacío y luego se sube al bucket de S3 especificado.
 Manejo de Errores y Limpieza: Se maneja cualquier excepción que ocurra durante el proceso y se limpia el archivo temporal al final.
 
+
+5. Descripción de Variables Utilizadas en el Job
+   
+5.1 Dataset
+dataset: "sis-agroproductivity-indicators"
+Descripción: Especifica el conjunto de datos que se va a utilizar. En este caso, corresponde a los indicadores de productividad de cultivos y evapotranspiración derivados de observaciones satelitales desde el año 2000 hasta la actualidad.
+
+5.2 Parámetros de la Solicitud
+La solicitud a la API incluye varios parámetros que definen el tipo de datos que se desean recuperar:
+
+product_family: ['crop_productivity_indicators']
+
+Descripción: Define la familia de productos dentro del conjunto de datos. En este caso, se seleccionan los indicadores de productividad de cultivos.
+variable: ['crop_development_stage']
+
+Descripción: Especifica la variable específica dentro de la familia de productos. Aquí se selecciona la etapa de desarrollo del cultivo, lo cual es crucial para el seguimiento del crecimiento de los cultivos.
+crop_type: ['maize']
+
+Descripción: Define el tipo de cultivo para el cual se desean obtener los indicadores. En este ejemplo, el tipo de cultivo es maíz (maize).
+year: '2023'
+
+Descripción: Indica el año para el cual se recuperarán los datos. Aquí se selecciona el año 2023.
+month: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+
+Descripción: Lista los meses del año seleccionados para la recuperación de datos. En este caso, se incluyen todos los meses del año 2023.
+day: ['10', '20', '28', '30', '31']
+
+Descripción: Define los días específicos de cada mes para los cuales se desea obtener datos. Aquí se seleccionan los días 10, 20, 28, 30 y 31 de cada mes.
+growing_season: ['1st_season_per_campaign']
+
+Descripción: Especifica la temporada de crecimiento. En este caso, se selecciona la primera temporada de la campaña de cultivo.
+harvest_year: '2023'
+
+Descripción: Define el año de cosecha para los datos seleccionados. Aquí se selecciona el año 2023.
+data_format: 'zip'
+
+Descripción: Indica el formato en el cual se desean recibir los datos descargados. En este caso, los datos se recuperan en formato ZIP.
+
