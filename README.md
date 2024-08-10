@@ -6,11 +6,11 @@ Documentación del Proyecto: Indicadores de Productividad de Cultivos y Evapotra
    
 Este proyecto tiene como objetivo el desarrollo de una aplicación para la recopilación, procesamiento y almacenamiento de datos sobre indicadores de productividad de cultivos y evapotranspiración desde el año 2000 hasta la actualidad. Estos indicadores se obtienen a partir de observaciones satelitales proporcionadas por el servicio Copernicus Climate Data Store (CDS). Los datos son procesados y almacenados en un bucket de Amazon S3 para su posterior análisis.
 
-3. Estructura del Proyecto
+2. Estructura del Proyecto
    
 El proyecto se organiza en varios jobs, cada uno diseñado para realizar una tarea específica dentro del pipeline de procesamiento de datos. Esta documentación describe el trabajo realizado hasta la fecha y deja espacio para la inclusión de documentación adicional a medida que se implementen nuevos jobs.
 
-4. Arquitectura Técnica
+3. Arquitectura Técnica
 
 3.1 Componentes y Tecnologías Empleadas
 La arquitectura técnica de este proyecto se compone de varios componentes que interactúan para proporcionar una solución completa para la recopilación, procesamiento y almacenamiento de datos de indicadores de productividad de cultivos y evapotranspiración. A continuación, se detallan los componentes clave, sus inter-relaciones y las tecnologías empleadas:
@@ -38,7 +38,9 @@ Scripts Python:
 Descripción: Los scripts Python son responsables de realizar las solicitudes a la API de CDS, manejar los datos descargados y subirlos a AWS S3.
 Tecnologías: Python, boto3, cdsapi, dotenv.
 Inter-relaciones: Se ejecutan dentro del entorno de GitHub Actions, interactúan con la API de CDS para obtener datos y luego con AWS S3 para almacenar esos datos.
+
 3.2 Flujo de Datos
+
 Trigger de GitHub Actions: Cuando se realiza un push al repositorio, se activa GitHub Actions, que configura el entorno, instala dependencias y ejecuta los scripts Python.
 Recuperación de Datos desde CDS: El script Python realiza una solicitud a la API de CDS utilizando parámetros específicos para recuperar los indicadores de productividad de cultivos.
 Procesamiento y Almacenamiento en AWS S3: Los datos recuperados se almacenan temporalmente en el sistema de archivos, se validan y luego se suben al bucket de S3 configurado.
@@ -46,6 +48,7 @@ Procesamiento y Almacenamiento en AWS S3: Los datos recuperados se almacenan tem
 4. Caso de Uso de Negocio
    
 4.1 Descripción del Caso de Uso
+
 El proyecto aborda la necesidad de monitorear la productividad de cultivos y la evapotranspiración a lo largo del tiempo mediante datos satelitales. Este tipo de monitoreo es esencial para:
 
 Optimización Agrícola: Ayuda a los agricultores y responsables de la toma de decisiones a optimizar el uso de recursos (agua, fertilizantes, etc.) basándose en datos precisos sobre el estado de los cultivos.
@@ -53,6 +56,7 @@ Prevención de Desastres: Permite una respuesta proactiva a las condiciones clim
 Investigación y Desarrollo: Facilita la investigación en la adaptación de cultivos al cambio climático mediante el análisis de datos históricos y actuales.
 
 4.2 Solución Técnica vs. Alternativas Existentes
+
 Solución Técnica Propuesta: La solución desarrollada se basa en la automatización de la recopilación de datos desde la API de CDS, seguida de su almacenamiento en la nube (AWS S3), lo que permite un acceso continuo y escalable a los datos para su posterior análisis.
 Mejoras Introducidas:
 Automatización: Reduce la intervención manual, minimizando errores y aumentando la eficiencia.
@@ -63,9 +67,12 @@ Recopilación Manual de Datos: Implica la descarga manual de datos desde fuentes
 Almacenamiento Local: Guardar datos en servidores locales puede ser limitado en términos de escalabilidad y accesibilidad, además de requerir mantenimiento adicional.
 
 5. Descripción de Variables Utilizadas en el Job
+   
 5.1 Dataset
+
 dataset: "sis-agroproductivity-indicators"
 Descripción: Especifica el conjunto de datos que se va a utilizar. En este caso, corresponde a los indicadores de productividad de cultivos y evapotranspiración derivados de observaciones satelitales desde el año 2000 hasta la actualidad.
+
 5.2 Parámetros de la Solicitud
 La solicitud a la API incluye varios parámetros que definen el tipo de datos que se desean recuperar:
 
