@@ -3,20 +3,26 @@
 Documentación del Proyecto: Indicadores de Productividad de Cultivos y Evapotranspiración desde el Año 2000 hasta la Actualidad Derivados de Observaciones Satelitales
 
 1. Introducción
+   
 Este proyecto tiene como objetivo el desarrollo de una aplicación para la recopilación, procesamiento y almacenamiento de datos sobre indicadores de productividad de cultivos y evapotranspiración desde el año 2000 hasta la actualidad. Estos indicadores se obtienen a partir de observaciones satelitales proporcionadas por el servicio Copernicus Climate Data Store (CDS). Los datos son procesados y almacenados en un bucket de Amazon S3 para su posterior análisis.
 
-2. Estructura del Proyecto
+3. Estructura del Proyecto
+   
 El proyecto se organiza en varios jobs, cada uno diseñado para realizar una tarea específica dentro del pipeline de procesamiento de datos. Esta documentación describe el trabajo realizado hasta la fecha y deja espacio para la inclusión de documentación adicional a medida que se implementen nuevos jobs.
 
-3. Arquitectura Técnica
+4. Arquitectura Técnica
+
 3.1 Componentes y Tecnologías Empleadas
 La arquitectura técnica de este proyecto se compone de varios componentes que interactúan para proporcionar una solución completa para la recopilación, procesamiento y almacenamiento de datos de indicadores de productividad de cultivos y evapotranspiración. A continuación, se detallan los componentes clave, sus inter-relaciones y las tecnologías empleadas:
 
 GitHub Actions:
 
 Descripción: GitHub Actions se utiliza para automatizar la ejecución de scripts cada vez que se realiza un push al repositorio.
+
 Tecnologías: YAML, GitHub Actions.
+
 Inter-relaciones: Interactúa con el repositorio de código para desencadenar la ejecución de scripts que se encargan del procesamiento de datos.
+
 API de Copernicus Climate Data Store (CDS):
 
 Descripción: Proporciona acceso a datos satelitales sobre indicadores de productividad de cultivos y evapotranspiración.
@@ -38,12 +44,14 @@ Recuperación de Datos desde CDS: El script Python realiza una solicitud a la AP
 Procesamiento y Almacenamiento en AWS S3: Los datos recuperados se almacenan temporalmente en el sistema de archivos, se validan y luego se suben al bucket de S3 configurado.
 
 4. Caso de Uso de Negocio
+   
 4.1 Descripción del Caso de Uso
 El proyecto aborda la necesidad de monitorear la productividad de cultivos y la evapotranspiración a lo largo del tiempo mediante datos satelitales. Este tipo de monitoreo es esencial para:
 
 Optimización Agrícola: Ayuda a los agricultores y responsables de la toma de decisiones a optimizar el uso de recursos (agua, fertilizantes, etc.) basándose en datos precisos sobre el estado de los cultivos.
 Prevención de Desastres: Permite una respuesta proactiva a las condiciones climáticas adversas que pueden afectar la producción agrícola.
 Investigación y Desarrollo: Facilita la investigación en la adaptación de cultivos al cambio climático mediante el análisis de datos históricos y actuales.
+
 4.2 Solución Técnica vs. Alternativas Existentes
 Solución Técnica Propuesta: La solución desarrollada se basa en la automatización de la recopilación de datos desde la API de CDS, seguida de su almacenamiento en la nube (AWS S3), lo que permite un acceso continuo y escalable a los datos para su posterior análisis.
 Mejoras Introducidas:
