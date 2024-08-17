@@ -4,7 +4,6 @@ import zipfile
 import tempfile
 import pandas as pd
 import xarray as xr
-from pyspark.sql import SparkSession
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -14,9 +13,6 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = "us-east-2"
 BUCKET_NAME = "trabajofinalmasterucmoscarduran"
-
-# Inicializar SparkSession
-spark = SparkSession.builder.appName("S3DataProcessing").getOrCreate()
 
 # Descargar y descomprimir archivos desde S3
 def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
@@ -44,10 +40,6 @@ def read_netcdf_with_xarray(file_path):
     ds.close()  # Cerrar el dataset después de su uso para liberar memoria
     return df
 
-# Convertir pandas DataFrame a Spark DataFrame
-def pandas_to_spark(pandas_df):
-    return spark.createDataFrame(pandas_df)
-
 # Subir datos a S3
 def upload_to_s3(df, s3_key):
     s3_client = boto3.client(
@@ -58,7 +50,7 @@ def upload_to_s3(df, s3_key):
     )
     
     with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_file:
-        df.toPandas().to_csv(temp_file.name, index=False)
+        df.to_csv(temp_file.name, index=False)
         s3_client.upload_file(temp_file.name, BUCKET_NAME, s3_key)
         print(f"Archivo subido a S3: {s3_key}")
 
@@ -71,16 +63,32 @@ for var in variables:
         s3_key = f'crop_productivity_indicators/{year}/{var}_year_{year}.zip'
         extracted_files = download_and_extract_zip_from_s3(s3_key)
         
+        all_data = pd.DataFrame()  # DataFrame para almacenar todos los datos combinados
+        
         for file_path in extracted_files:
-            pandas_df = read_netcdf_with_xarray(file_path)
-            spark_df = pandas_to_spark(pandas_df)
+            df = read_netcdf_with_xarray(file_path)
             
             # Filtrar las columnas de interés
-            X_filtered = spark_df.select("Total Above Ground Production (TAGP)", "Total Weight Storage Organs (TWSO)")
-            y_filtered = spark_df.select("Crop Development Stage (DVS)")
-            
+            if 'Total Above Ground Production (TAGP)' in df.columns and 'Total Weight Storage Organs (TWSO)' in df.columns:
+                X_filtered = df[["Total Above Ground Production (TAGP)", "Total Weight Storage Organs (TWSO)"]]
+            else:
+                X_filtered = pd.DataFrame()  # Crear un DataFrame vacío si no existen esas columnas
+
+            if 'Crop Development Stage (DVS)' in df.columns:
+                y_filtered = df["Crop Development Stage (DVS)"]
+            else:
+                y_filtered = pd.Series()  # Crear una Serie vacía si no existe la columna
+
+            if not X_filtered.empty and not y_filtered.empty:
+                # Concatenar las columnas X e y en un solo DataFrame
+                df_filtered = pd.concat([X_filtered, y_filtered], axis=1)
+
+                all_data = pd.concat([all_data, df_filtered], axis=0)
+
+        # Si all_data no está vacío, realizar la división y subir a S3
+        if not all_data.empty:
             # Dividir en train/test (80/20)
-            train_data, test_data = X_filtered.randomSplit([0.8, 0.2], seed=42)
+            train_data, test_data = train_test_split(all_data, test_size=0.2, random_state=42)
             
             # Subir los datos de entrenamiento y prueba a S3
             temp_s3_key_train = f'train/{var}_train_{year}.csv'
@@ -89,4 +97,5 @@ for var in variables:
             upload_to_s3(test_data, temp_s3_key_test)
 
 print("Proceso completado.")
+
 
