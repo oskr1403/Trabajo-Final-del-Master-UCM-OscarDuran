@@ -1,6 +1,7 @@
 import boto3
 import os
 import tempfile
+import time
 from dotenv import load_dotenv
 import cdsapi
 
@@ -23,6 +24,19 @@ variables = ['crop_development_stage', 'total_above_ground_production', 'total_w
 years = ['2019', '2020', '2021', '2022', '2023']
 
 client = cdsapi.Client()
+
+def wait_for_job_to_complete(client, request):
+    """Wait until the job is completed before attempting to download."""
+    while True:
+        try:
+            client.retrieve(dataset, request)
+            break  # Exit the loop if the job is complete and ready for download
+        except Exception as e:
+            if "Result not ready, job is running" in str(e):
+                print("Job is still running, waiting for 10 seconds before checking again...")
+                time.sleep(2)  # wait for 2 seconds before checking again
+            else:
+                raise  # Raise any other exceptions
 
 def upload_to_s3(temp_file_path, s3_client, bucket_name, s3_key):
     """Upload file to S3."""
@@ -51,6 +65,9 @@ try:
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 temp_file_path = temp_file.name
                 print(f"Attempting to retrieve data for {var} in year {year} to temporary file: {temp_file_path}")
+
+                # Wait for the job to complete before downloading
+                wait_for_job_to_complete(client, request)
 
                 # Retrieve data and download it directly to the temporary file
                 response = client.retrieve(dataset, request)
