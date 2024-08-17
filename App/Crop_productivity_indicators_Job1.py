@@ -34,7 +34,7 @@ def wait_for_job_to_complete(client, request):
         except Exception as e:
             if "Result not ready, job is running" in str(e):
                 print("Job is still running, waiting for 10 seconds before checking again...")
-                time.sleep(60)  # wait for 60 seconds before checking again
+                time.sleep(100)  # wait for 100 seconds before checking again
             else:
                 raise  # Raise any other exceptions
 
