@@ -2,8 +2,9 @@ import os
 import boto3
 import zipfile
 import tempfile
+import pandas as pd
+import xarray as xr
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -36,10 +37,16 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
     extracted_files = [os.path.join(extract_to, file) for file in os.listdir(extract_to) if file.endswith('.nc')]
     return extracted_files
 
-# Leer y procesar archivos NetCDF con Spark
-def read_netcdf_with_spark(file_path):
-    df = spark.read.format("netcdf").load(file_path)  # Necesitarás un formato compatible para NetCDF o leer en pandas y convertir a Spark
+# Leer archivos NetCDF con xarray y convertir a pandas DataFrame
+def read_netcdf_with_xarray(file_path):
+    ds = xr.open_dataset(file_path)
+    df = ds.to_dataframe().reset_index()
+    ds.close()  # Cerrar el dataset después de su uso para liberar memoria
     return df
+
+# Convertir pandas DataFrame a Spark DataFrame
+def pandas_to_spark(pandas_df):
+    return spark.createDataFrame(pandas_df)
 
 # Subir datos a S3
 def upload_to_s3(df, s3_key):
@@ -65,11 +72,12 @@ for var in variables:
         extracted_files = download_and_extract_zip_from_s3(s3_key)
         
         for file_path in extracted_files:
-            df = read_netcdf_with_spark(file_path)
+            pandas_df = read_netcdf_with_xarray(file_path)
+            spark_df = pandas_to_spark(pandas_df)
             
             # Filtrar las columnas de interés
-            X_filtered = df.select("Total Above Ground Production (TAGP)", "Total Weight Storage Organs (TWSO)")
-            y_filtered = df.select("Crop Development Stage (DVS)")
+            X_filtered = spark_df.select("Total Above Ground Production (TAGP)", "Total Weight Storage Organs (TWSO)")
+            y_filtered = spark_df.select("Crop Development Stage (DVS)")
             
             # Dividir en train/test (80/20)
             train_data, test_data = X_filtered.randomSplit([0.8, 0.2], seed=42)
@@ -81,5 +89,4 @@ for var in variables:
             upload_to_s3(test_data, temp_s3_key_test)
 
 print("Proceso completado.")
-
 
