@@ -65,7 +65,7 @@ try:
 
                 # Retrieve data and get request ID
                 response = client.retrieve(dataset, request)
-                request_id = response.json()['request_id']
+                request_id = response['request_id']  # Corrected: access the request_id properly
 
                 # Wait for job to complete
                 wait_for_job_to_complete(client, request_id)
@@ -94,3 +94,4 @@ finally:
         os.remove(temp_file_path)
     except:
         pass
+
