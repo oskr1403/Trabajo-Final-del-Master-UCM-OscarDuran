@@ -4,7 +4,7 @@ import zipfile
 import tempfile
 import numpy as np
 import pandas as pd
-from netCDF4 import Dataset
+import xarray as xr
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
 
@@ -35,13 +35,11 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
     extracted_files = [os.path.join(extract_to, file) for file in os.listdir(extract_to) if file.endswith('.nc')]
     return extracted_files
 
-# Leer y procesar archivos NetCDF
+# Leer y procesar archivos NetCDF con xarray
 def read_netcdf(file_path):
-    with Dataset(file_path, 'r') as nc_file:
-        data = {}  # Diccionario para almacenar las variables de interés
-        for var_name in nc_file.variables:
-            data[var_name] = nc_file.variables[var_name][:]
-    return pd.DataFrame(data)
+    ds = xr.open_dataset(file_path)
+    df = ds.to_dataframe().reset_index()
+    return df
 
 # Subir datos a S3
 def upload_to_s3(df, s3_key):
