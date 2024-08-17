@@ -39,6 +39,7 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
 def read_netcdf(file_path):
     ds = xr.open_dataset(file_path)
     df = ds.to_dataframe().reset_index()
+    ds.close()  # Cerrar el dataset después de su uso para liberar memoria
     return df
 
 # Subir datos a S3
@@ -68,11 +69,20 @@ for var in variables:
         for file_path in extracted_files:
             df = read_netcdf(file_path)
             all_data = pd.concat([all_data, df], axis=0)
-    
-    # Dividir los datos en 70% entrenamiento y 30% prueba
-    train_data, test_data = train_test_split(all_data, test_size=0.3, random_state=42)
-    
-    # Subir datos de entrenamiento y prueba a S3
-    upload_to_s3(train_data, f'train/{var}_train.csv')
-    upload_to_s3(test_data, f'test/{var}_test.csv')
+            del df  # Liberar memoria explícitamente después de cada lote
+        
+        # Guardar datos temporalmente después de cada año para reducir uso de memoria
+        temp_s3_key_train = f'train/{var}_train_{year}.csv'
+        temp_s3_key_test = f'test/{var}_test_{year}.csv'
+        train_data, test_data = train_test_split(all_data, test_size=0.3, random_state=42)
+        
+        # Subir los datos de entrenamiento y prueba a S3 después de cada año
+        upload_to_s3(train_data, temp_s3_key_train)
+        upload_to_s3(test_data, temp_s3_key_test)
+        
+        # Limpiar el DataFrame combinado después de subirlo para liberar memoria
+        all_data = pd.DataFrame()
+
+print("Proceso completado.")
+
 
