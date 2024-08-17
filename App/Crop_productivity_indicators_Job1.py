@@ -1,9 +1,9 @@
 import boto3
 import os
 import tempfile
-import io
 from dotenv import load_dotenv
 import cdsapi
+from numba import jit
 
 # Load environment variables (only needed if running locally with a .env file)
 if not os.getenv("GITHUB_ACTIONS"):
@@ -18,49 +18,61 @@ BUCKET_NAME = "trabajofinalmasterucmoscarduran"
 if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not AWS_REGION:
     raise ValueError("AWS credentials or region are not set properly.")
 
-# Define dataset and request
+# Define dataset, variables, months, and years
 dataset = "sis-agroproductivity-indicators"
-request = {
-    'product_family': ['crop_productivity_indicators'],
-    'variable': ['crop_development_stage'],
-    'crop_type': ['maize'],
-    'year': '2023',
-    'month': ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'],
-    'day': ['10', '20', '28', '30', '31'],
-    'growing_season': ['1st_season_per_campaign'],
-    'harvest_year': '2023',
-    'data_format': 'zip'
-}
-
+variables = ['crop_development_stage', 'total_above_ground_production', 'total_weight_storage_organs']
+months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+years = ['2019', '2020', '2021', '2022', '2023']
 
 client = cdsapi.Client()
 
-# Method 2: Temporary File
+@jit(nopython=True)
+def batch_upload(temp_file_path, s3_client, bucket_name, s3_key):
+    """Upload file to S3 using accelerated Numba function"""
+    # Check if file is empty
+    if os.path.getsize(temp_file_path) > 0:
+        # Upload the temporary file to S3
+        s3_client.upload_file(temp_file_path, bucket_name, s3_key)
+        print(f"File uploaded to S3 bucket {bucket_name} with key {s3_key}")
+    else:
+        print("Temporary file is empty. No data was retrieved.")
+
+# Method 2: Temporary File in Batches
 try:
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        temp_file_path = temp_file.name
-        print(f"Attempting to retrieve data to temporary file: {temp_file_path}")
+    for var in variables:
+        for year in years:
+            for month in months:
+                request = {
+                    'product_family': ['crop_productivity_indicators'],
+                    'variable': [var],
+                    'crop_type': ['maize'],
+                    'year': year,
+                    'month': [month],
+                    'day': ['10', '20', '28', '30', '31'],
+                    'growing_season': ['1st_season_per_campaign'],
+                    'harvest_year': year,
+                    'data_format': 'zip'
+                }
 
-        # Retrieve data and save it to the temporary file
-        response = client.retrieve(dataset, request)
-        response.download(temp_file_path)
-        print(f"Data download completed. File saved to: {temp_file_path}")
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file_path = temp_file.name
+                    print(f"Attempting to retrieve data for {var} in year {year}, month {month} to temporary file: {temp_file_path}")
 
-        # Check if file is empty
-        if os.path.getsize(temp_file_path) > 0:
-            # Upload the temporary file to S3
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-                region_name=AWS_REGION
-            )
+                    # Retrieve data and save it to the temporary file
+                    response = client.retrieve(dataset, request)
+                    response.download(temp_file_path)
+                    print(f"Data download completed for {var} in year {year}, month {month}. File saved to: {temp_file_path}")
 
-            s3_key = 'crop_productivity_indicators/crop_development_stage.zip'
-            s3_client.upload_file(temp_file_path, BUCKET_NAME, s3_key)
-            print(f"File uploaded to S3 bucket {BUCKET_NAME} with key {s3_key}")
-        else:
-            print("Temporary file is empty. No data was retrieved.")
+                    # Upload the file to S3
+                    s3_client = boto3.client(
+                        's3',
+                        aws_access_key_id=AWS_ACCESS_KEY_ID,
+                        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+                        region_name=AWS_REGION
+                    )
+
+                    s3_key = f'crop_productivity_indicators/{year}/{var}/month_{month}.zip'
+                    batch_upload(temp_file_path, s3_client, BUCKET_NAME, s3_key)
 
 except Exception as e:
     print(f"Error: {e}")
@@ -71,3 +83,4 @@ finally:
         os.remove(temp_file_path)
     except:
         pass
+
