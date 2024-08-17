@@ -34,93 +34,48 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
     extracted_files = [os.path.join(extract_to, file) for file in os.listdir(extract_to) if file.endswith('.nc')]
     return extracted_files
 
-# Leer archivos NetCDF con xarray y convertir a pandas DataFrame
-def read_netcdf_with_xarray(file_path):
-    print(f"Leyendo archivo NetCDF: {file_path}")
-    ds = xr.open_dataset(file_path)
-    df = ds.to_dataframe().reset_index()
-    ds.close()  # Cerrar el dataset después de su uso para liberar memoria
-    return df
-
-# Subir datos a S3
-def upload_to_s3(file_path, s3_key):
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
-    )
-
-    print(f"Subiendo archivo a S3: {s3_key}")
-    try:
-        s3_client.upload_file(file_path, BUCKET_NAME, s3_key)
-        print(f"Archivo subido a S3: {s3_key}")
-    except Exception as e:
-        print(f"Error subiendo archivo a S3: {e}")
-
-# Variables y años a procesar
-variables = ['crop_development_stage', 'total_above_ground_production', 'total_weight_storage_organs']
-years_2019_2022 = ['2019', '2020', '2021', '2022']
-year_2023 = ['2023']
-
-def process_years(years, batch_size=1000):
-    all_data = pd.DataFrame()  # DataFrame para almacenar todos los datos combinados
-
-    for year in years:
-        for var in variables:
-            s3_key = f'crop_productivity_indicators/{year}/{var}_year_{year}.zip'
-            extracted_files = download_and_extract_zip_from_s3(s3_key)
-            
-            for file_path in extracted_files:
-                df = read_netcdf_with_xarray(file_path)
-                
-                # Filtrar las columnas de interés
-                if 'Total Above Ground Production (TAGP)' in df.columns and 'Total Weight Storage Organs (TWSO)' in df.columns:
-                    X_filtered = df[["Total Above Ground Production (TAGP)", "Total Weight Storage Organs (TWSO)"]]
-                else:
-                    X_filtered = pd.DataFrame()  # Crear un DataFrame vacío si no existen esas columnas
-
-                if 'Crop Development Stage (DVS)' in df.columns:
-                    y_filtered = df["Crop Development Stage (DVS)"]
-                else:
-                    y_filtered = pd.Series()  # Crear una Serie vacía si no existe la columna
-
-                if not X_filtered.empty and not y_filtered.empty:
-                    # Concatenar las columnas X e y en un solo DataFrame
-                    df_filtered = pd.concat([X_filtered, y_filtered], axis=1)
-                    all_data = pd.concat([all_data, df_filtered], axis=0)
-                    
-                    # Procesar en batches
-                    if len(all_data) >= batch_size:
-                        print(f"Procesando batch para el año {year}...")
-                        save_batches(all_data, year)
-                        all_data = pd.DataFrame()  # Resetear el DataFrame después de guardar el batch
-
-    # Guardar el último batch si queda algo
-    if not all_data.empty:
-        print(f"Guardando último batch para el año {year}...")
-        save_batches(all_data, year)
-
-def save_batches(df, year):
-    train_data, test_data = train_test_split(df, test_size=0.2, random_state=42)
+# Función para extraer archivos NetCDF de un archivo ZIP y cargar datos específicos por chunks
+def extract_and_load_nc_data_by_chunks(zip_file_path, variable_name, chunk_size=1000):
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        zip_ref.extractall(base_directory)
     
-    # Guardar datos de entrenamiento y prueba en archivos CSV por año
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as train_temp_file:
-        train_data.to_csv(train_temp_file.name, index=False)
-        temp_s3_key_train = f'train/{year}_train.csv'
-        upload_to_s3(train_temp_file.name, temp_s3_key_train)
+    # Buscar archivos .nc
+    nc_files = [os.path.join(base_directory, file) for file in os.listdir(base_directory) if file.endswith('.nc')]
+    
+    data = []
+    
+    # Extraer datos de la variable específica por chunks
+    for nc_file in nc_files:
+        with Dataset(nc_file, 'r') as nc:
+            if variable_name in nc.variables:
+                var_data = nc.variables[variable_name]
+                # Procesar en chunks para evitar sobrecarga de memoria
+                for i in range(0, var_data.shape[0], chunk_size):
+                    chunk = var_data[i:i+chunk_size].flatten()
+                    data.append(chunk)
+            else:
+                print(f"Advertencia: '{variable_name}' no encontrado en {nc_file}")
+    
+    if len(data) > 0:
+        return np.concatenate(data)
+    else:
+        return np.array([])  # Retorna un array vacío si no se encuentra la variable
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as test_temp_file:
-        test_data.to_csv(test_temp_file.name, index=False)
-        temp_s3_key_test = f'test/{year}_test.csv'
-        upload_to_s3(test_temp_file.name, temp_s3_key_test)
+# Verificar si los arrays contienen datos
+if len(crop_stage_data) == 0 or len(above_ground_prod_data) == 0 or len(weight_storage_organs_data) == 0:
+    raise ValueError("Una o más variables no pudieron ser cargadas. Verifique los nombres de las variables y los archivos NetCDF.")
 
-# Procesar los años 2019-2022 en conjunto
-process_years(years_2019_2022)
+# Crear un DataFrame para el análisis exploratorio
+df = pd.DataFrame({
+    "Crop Development Stage (DVS)": crop_stage_data,
+    "Total Above Ground Production (TAGP)": above_ground_prod_data,
+    "Total Weight Storage Organs (TWSO)": weight_storage_organs_data
+})
 
-# Procesar el año 2023 por separado
-process_years(year_2023)
+# Tomar una muestra del 50% de los datos
+df_sample = df.sample(frac=0.5, random_state=42)
+# Análisis exploratorio con la muestra
+print(df_sample.describe())
+
 
 print("Proceso completado.")
-
-
