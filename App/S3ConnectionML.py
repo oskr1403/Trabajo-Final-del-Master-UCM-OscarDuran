@@ -43,24 +43,20 @@ def read_netcdf_with_xarray(file_path):
     return df
 
 # Subir datos a S3
-def upload_to_s3(df, s3_key):
+def upload_to_s3(file_path, s3_key):
     s3_client = boto3.client(
         's3',
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
         region_name=AWS_REGION
     )
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_file:
-        print(f"Guardando archivo temporal: {temp_file.name}")
-        df.to_csv(temp_file.name, index=False)
-        
-        print(f"Subiendo archivo a S3: {s3_key}")
-        try:
-            s3_client.upload_file(temp_file.name, BUCKET_NAME, s3_key)
-            print(f"Archivo subido a S3: {s3_key}")
-        except Exception as e:
-            print(f"Error subiendo archivo a S3: {e}")
+
+    print(f"Subiendo archivo a S3: {s3_key}")
+    try:
+        s3_client.upload_file(file_path, BUCKET_NAME, s3_key)
+        print(f"Archivo subido a S3: {s3_key}")
+    except Exception as e:
+        print(f"Error subiendo archivo a S3: {e}")
 
 # Variables y años a procesar
 variables = ['crop_development_stage', 'total_above_ground_production', 'total_weight_storage_organs']
@@ -109,12 +105,15 @@ def save_batches(df, year):
     train_data, test_data = train_test_split(df, test_size=0.2, random_state=42)
     
     # Guardar datos de entrenamiento y prueba en archivos CSV por año
-    temp_s3_key_train = f'train/{year}_train.csv'
-    temp_s3_key_test = f'test/{year}_test.csv'
-    
-    print(f"Guardando datos de entrenamiento y prueba para el año {year}...")
-    upload_to_s3(train_data, temp_s3_key_train)
-    upload_to_s3(test_data, temp_s3_key_test)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as train_temp_file:
+        train_data.to_csv(train_temp_file.name, index=False)
+        temp_s3_key_train = f'train/{year}_train.csv'
+        upload_to_s3(train_temp_file.name, temp_s3_key_train)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as test_temp_file:
+        test_data.to_csv(test_temp_file.name, index=False)
+        temp_s3_key_test = f'test/{year}_test.csv'
+        upload_to_s3(test_temp_file.name, temp_s3_key_test)
 
 # Procesar los años 2019-2022 en conjunto
 process_years(years_2019_2022)
