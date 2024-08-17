@@ -26,16 +26,19 @@ years = ['2019', '2020', '2021', '2022', '2023']
 
 client = cdsapi.Client()
 
-@jit(nopython=True)
-def batch_upload(temp_file_path, s3_client, bucket_name, s3_key):
-    """Upload file to S3 using accelerated Numba function"""
-    # Check if file is empty
+def upload_to_s3(temp_file_path, s3_client, bucket_name, s3_key):
+    """Upload file to S3, no Numba needed here."""
     if os.path.getsize(temp_file_path) > 0:
-        # Upload the temporary file to S3
         s3_client.upload_file(temp_file_path, bucket_name, s3_key)
         print(f"File uploaded to S3 bucket {bucket_name} with key {s3_key}")
     else:
         print("Temporary file is empty. No data was retrieved.")
+
+# Function using numba for numerical operations or repetitive loops
+@jit(nopython=True)
+def process_batch_operations():
+    """Placeholder for operations that could benefit from Numba."""
+    pass  # Add any numerical operations here that need acceleration
 
 # Method 2: Temporary File in Batches
 try:
@@ -72,7 +75,7 @@ try:
                     )
 
                     s3_key = f'crop_productivity_indicators/{year}/{var}/month_{month}.zip'
-                    batch_upload(temp_file_path, s3_client, BUCKET_NAME, s3_key)
+                    upload_to_s3(temp_file_path, s3_client, BUCKET_NAME, s3_key)
 
 except Exception as e:
     print(f"Error: {e}")
@@ -83,4 +86,3 @@ finally:
         os.remove(temp_file_path)
     except:
         pass
-
