@@ -3,7 +3,8 @@ import boto3
 import zipfile
 import tempfile
 import pandas as pd
-import xarray as xr
+import numpy as np
+from netCDF4 import Dataset
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
 
@@ -36,6 +37,7 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
 
 # Función para extraer archivos NetCDF de un archivo ZIP y cargar datos específicos por chunks
 def extract_and_load_nc_data_by_chunks(zip_file_path, variable_name, chunk_size=1000):
+    base_directory = '/tmp'  # Directorio de extracción
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.extractall(base_directory)
     
@@ -61,21 +63,31 @@ def extract_and_load_nc_data_by_chunks(zip_file_path, variable_name, chunk_size=
     else:
         return np.array([])  # Retorna un array vacío si no se encuentra la variable
 
-# Verificar si los arrays contienen datos
-if len(crop_stage_data) == 0 or len(above_ground_prod_data) == 0 or len(weight_storage_organs_data) == 0:
-    raise ValueError("Una o más variables no pudieron ser cargadas. Verifique los nombres de las variables y los archivos NetCDF.")
+# Ejemplo de uso
+try:
+    # Asumiendo que las variables están definidas en tus archivos NetCDF
+    crop_stage_data = extract_and_load_nc_data_by_chunks('/tmp/example.zip', 'DVS')
+    above_ground_prod_data = extract_and_load_nc_data_by_chunks('/tmp/example.zip', 'TAGP')
+    weight_storage_organs_data = extract_and_load_nc_data_by_chunks('/tmp/example.zip', 'TWSO')
 
-# Crear un DataFrame para el análisis exploratorio
-df = pd.DataFrame({
-    "Crop Development Stage (DVS)": crop_stage_data,
-    "Total Above Ground Production (TAGP)": above_ground_prod_data,
-    "Total Weight Storage Organs (TWSO)": weight_storage_organs_data
-})
+    # Verificar si los arrays contienen datos
+    if len(crop_stage_data) == 0 or len(above_ground_prod_data) == 0 or len(weight_storage_organs_data) == 0:
+        raise ValueError("Una o más variables no pudieron ser cargadas. Verifique los nombres de las variables y los archivos NetCDF.")
+    
+    # Crear un DataFrame para el análisis exploratorio
+    df = pd.DataFrame({
+        "Crop Development Stage (DVS)": crop_stage_data,
+        "Total Above Ground Production (TAGP)": above_ground_prod_data,
+        "Total Weight Storage Organs (TWSO)": weight_storage_organs_data
+    })
+    
+    # Tomar una muestra del 50% de los datos
+    df_sample = df.sample(frac=0.5, random_state=42)
+    
+    # Análisis exploratorio con la muestra
+    print(df_sample.describe())
 
-# Tomar una muestra del 50% de los datos
-df_sample = df.sample(frac=0.5, random_state=42)
-# Análisis exploratorio con la muestra
-print(df_sample.describe())
-
+except Exception as e:
+    print(f"Error durante el proceso: {e}")
 
 print("Proceso completado.")
