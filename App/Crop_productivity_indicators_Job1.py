@@ -1,7 +1,6 @@
 import boto3
 import os
 import tempfile
-import time
 from dotenv import load_dotenv
 import cdsapi
 
@@ -24,16 +23,6 @@ variables = ['crop_development_stage', 'total_above_ground_production', 'total_w
 years = ['2019', '2020', '2021', '2022', '2023']
 
 client = cdsapi.Client()
-
-def wait_for_job_to_complete(client, request_id):
-    """Wait until the job is completed"""
-    status = client.status(request_id)
-    while status['state'] != 'completed':
-        if status['state'] == 'failed':
-            raise RuntimeError(f"Job failed with status: {status['state']}")
-        print(f"Waiting for job {request_id} to complete. Current status: {status['state']}")
-        time.sleep(10)  # wait for 10 seconds before checking again
-        status = client.status(request_id)
 
 def upload_to_s3(temp_file_path, s3_client, bucket_name, s3_key):
     """Upload file to S3."""
@@ -63,14 +52,8 @@ try:
                 temp_file_path = temp_file.name
                 print(f"Attempting to retrieve data for {var} in year {year} to temporary file: {temp_file_path}")
 
-                # Retrieve data and get request ID
+                # Retrieve data and download it directly to the temporary file
                 response = client.retrieve(dataset, request)
-                request_id = response['request_id']  # Corrected: access the request_id properly
-
-                # Wait for job to complete
-                wait_for_job_to_complete(client, request_id)
-
-                # Once job is completed, download the data
                 response.download(temp_file_path)
                 print(f"Data download completed for {var} in year {year}. File saved to: {temp_file_path}")
 
@@ -94,4 +77,3 @@ finally:
         os.remove(temp_file_path)
     except:
         pass
-
