@@ -7,7 +7,6 @@ import pandas as pd
 import xarray as xr
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
-from numba import njit
 
 # Cargar variables de entorno
 load_dotenv()
@@ -40,12 +39,6 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
 def read_netcdf(file_path):
     ds = xr.open_dataset(file_path)
     df = ds.to_dataframe().reset_index()
-    
-    # Aplicar cálculos optimizados con Numba si es necesario
-    for col in df.columns:
-        if df[col].dtype in [np.float64, np.float32]:  # Solo si es numérico
-            df[col] = custom_calculation(df[col].values)
-    
     ds.close()  # Cerrar el dataset después de su uso para liberar memoria
     return df
 
@@ -75,23 +68,25 @@ for var in variables:
         
         for file_path in extracted_files:
             df = read_netcdf(file_path)
-            all_data = pd.concat([all_data, df], axis=0)
+            
+            # Filtrar las columnas de interés
+            X_filtered = df[["Total Above Ground Production (TAGP)", "Total Weight Storage Organs (TWSO)"]]
+            y_filtered = df["Crop Development Stage (DVS)"]
+            
+            # Concatenar las columnas X e y en un solo DataFrame
+            df_filtered = pd.concat([X_filtered, y_filtered], axis=1)
+            
+            all_data = pd.concat([all_data, df_filtered], axis=0)
             del df  # Liberar memoria explícitamente después de cada lote
         
-        # Separar variables dependientes e independientes
-        X = all_data[["total_above_ground_production", "total_weight_storage_organs"]]
-        y = all_data["crop_development_stage"]
-        
-        # Dividir los datos en 80% entrenamiento y 20% prueba
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        
-        # Guardar los conjuntos de datos de entrenamiento y prueba en S3
-        train_data = pd.concat([X_train, y_train], axis=1)
-        test_data = pd.concat([X_test, y_test], axis=1)
+        # Guardar datos temporalmente después de cada año para reducir uso de memoria
+        temp_s3_key_train = f'train/{var}_train_{year}.csv'
+        temp_s3_key_test = f'test/{var}_test_{year}.csv'
+        train_data, test_data = train_test_split(all_data, test_size=0.2, random_state=42)
         
         # Subir los datos de entrenamiento y prueba a S3 después de cada año
-        upload_to_s3(train_data, f'train/{var}_train_{year}.csv')
-        upload_to_s3(test_data, f'test/{var}_test_{year}.csv')
+        upload_to_s3(train_data, temp_s3_key_train)
+        upload_to_s3(test_data, temp_s3_key_test)
         
         # Limpiar el DataFrame combinado después de subirlo para liberar memoria
         all_data = pd.DataFrame()
