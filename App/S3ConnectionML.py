@@ -53,10 +53,11 @@ def process_netcdf_in_chunks(file_path, label, chunk_size=1000, output_dir='/tmp
             output_file = os.path.join(output_dir, f"{label}_processed_chunk_{i}.nc")
             chunk.to_netcdf(output_file)
             print(f"Chunk {i} procesado y guardado en {output_file}")
+
+            # Imprimir las coordenadas del chunk procesado
+            print(f"\nCoordenadas del Chunk {i}:")
+            print(chunk.coords.to_dataset().to_dataframe())
         
-        # Imprimir las coordenadas del dataset completo
-        print("\nCoordenadas del Dataset Procesado:")
-        print(ds.coords)
     except Exception as e:
         print(f"Error al procesar {file_path} en chunks: {str(e)}")
 
