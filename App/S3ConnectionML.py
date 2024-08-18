@@ -41,21 +41,42 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         print(f"Error al descargar y extraer {s3_key} desde S3: {str(e)}")
         return None
 
-def read_netcdf_with_xarray(file_path, variable_label):
-    """Leer archivos NetCDF con xarray y agregar una etiqueta de variable."""
+def process_netcdf_in_chunks(file_path, label, chunk_size=1000, output_dir='/tmp'):
+    """Procesar archivos NetCDF en chunks y guardar los resultados."""
     try:
-        ds = xr.open_dataset(file_path)
-        # Agregar una nueva coordenada o dimensión que identifique la variable
-        ds = ds.assign_coords(variable_label=("variable_label", [variable_label]))
-        return ds
-    except FileNotFoundError:
-        print(f"Archivo {file_path} no encontrado.")
-        return None
+        ds = xr.open_dataset(file_path, chunks={'time': chunk_size})
+        ds = ds.assign_coords(variable_label=("variable_label", [label]))
+        
+        # Procesar los chunks y guardar los resultados
+        output_file = os.path.join(output_dir, f"{label}_processed.nc")
+        ds.to_netcdf(output_file)
+        print(f"Datos procesados en chunks guardados en {output_file}")
+        
+        # Imprimir las coordenadas del dataset procesado
+        print("\nCoordenadas del Dataset Procesado:")
+        print(ds.coords.to_dataframe())
+    except Exception as e:
+        print(f"Error al procesar {file_path} en chunks: {str(e)}")
 
-def process_files_for_year(year):
-    """Descargar, extraer y procesar archivos NetCDF para un año específico, con etiquetas."""
-    all_data = []
-    # Definir el mapeo entre el nombre del archivo y la etiqueta de la variable
+def process_single_file(s3_key, label, chunk_size=1000, output_dir='/tmp'):
+    """Procesar un único archivo ZIP de S3, extraer y guardar los resultados en chunks."""
+    extract_path = download_and_extract_zip_from_s3(s3_key, extract_to=output_dir)
+    
+    if extract_path:
+        extracted_files = [f for f in os.listdir(extract_path) if f.endswith('.nc')]
+        if extracted_files:
+            for file in extracted_files:
+                full_path = os.path.join(extract_path, file)
+                process_netcdf_in_chunks(full_path, label, chunk_size=chunk_size, output_dir=output_dir)
+        else:
+            print(f"No se encontraron archivos NetCDF en {extract_path}")
+    else:
+        print(f"Archivo para '{label}' no encontrado en S3")
+
+def main():
+    year = "2023"  # Año a procesar
+    chunk_size = 1000  # Tamaño del chunk para procesar
+
     file_to_label = {
         f'crop_development_stage_year_{year}.zip': 'DVS',
         f'total_above_ground_production_year_{year}.zip': 'TAGP',
@@ -64,54 +85,10 @@ def process_files_for_year(year):
 
     for s3_file, label in file_to_label.items():
         s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-        extract_path = download_and_extract_zip_from_s3(s3_key)
-        
-        if extract_path:
-            # Buscar archivos NetCDF extraídos
-            extracted_files = [f for f in os.listdir(extract_path) if f.endswith('.nc')]
-            if extracted_files:
-                for file in extracted_files:
-                    full_path = os.path.join(extract_path, file)
-                    ds = read_netcdf_with_xarray(full_path, label)
-                    if ds is not None:
-                        print(f"Datos del archivo {file} ({label}):")
-                        print(ds)
-                        all_data.append(ds)
-                    else:
-                        print(f"No se pudieron cargar los datos para '{label}' en {full_path}")
-            else:
-                print(f"No se encontraron archivos NetCDF en {extract_path}")
-        else:
-            print(f"Archivo para '{label}' en el año {year} no encontrado en S3")
+        process_single_file(s3_key, label, chunk_size=chunk_size)
         
         # Pausar entre cada archivo para evitar sobrecargar el sistema
-        time.sleep(10)  # Pausa de 10 segundos entre cada archivo
-    
-    if all_data:
-        # Combinar todos los datasets en uno solo
-        combined_ds = xr.concat(all_data, dim="variable_label")
-        return combined_ds
-    else:
-        return None
-
-def main():
-    years = ["2023"]  # Lista de años a procesar
-
-    for year in years:
-        # Procesar en lotes por año
-        combined_ds = process_files_for_year(year)
-        if combined_ds is not None:
-            print(f"Datos combinados para el año {year}:")
-            print(combined_ds)
-            
-            # Imprimir las coordenadas para verificar las etiquetas
-            print("\nCoordenadas del Dataset Combinado:")
-            print(combined_ds.coords)
-        else:
-            print(f"No se encontraron datos combinados para el año {year}.")
-        
-        # Pausar entre el procesamiento de años para evitar sobrecarga
-        time.sleep(60)  # Pausa de 60 segundos entre el procesamiento de años
+        time.sleep(10)
 
 if __name__ == "__main__":
     main()
