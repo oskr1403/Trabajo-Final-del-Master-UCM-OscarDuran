@@ -3,8 +3,7 @@ import boto3
 import tempfile
 import zipfile
 import xarray as xr
-import numpy as np
-import time
+import pandas as pd
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -41,28 +40,8 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         print(f"Error al descargar y extraer {s3_key} desde S3: {str(e)}")
         return None
 
-def process_netcdf_in_chunks(file_path, label, chunk_size=1000, output_dir='/tmp'):
-    """Procesar archivos NetCDF en chunks y guardar los resultados sin usar dask."""
-    try:
-        ds = xr.open_dataset(file_path)
-        ds = ds.assign_coords(variable_label=("variable_label", [label]))
-
-        # Procesar los datos en chunks manualmente
-        for i in range(0, ds.sizes['time'], chunk_size):
-            chunk = ds.isel(time=slice(i, i + chunk_size))
-            output_file = os.path.join(output_dir, f"{label}_processed_chunk_{i}.nc")
-            chunk.to_netcdf(output_file)
-            print(f"Chunk {i} procesado y guardado en {output_file}")
-
-            # Imprimir las coordenadas del chunk procesado
-            print(f"\nCoordenadas del Chunk {i}:")
-            print(chunk.coords.to_dataset().to_dataframe())
-        
-    except Exception as e:
-        print(f"Error al procesar {file_path} en chunks: {str(e)}")
-
-def process_single_file(s3_key, label, chunk_size=1000, output_dir='/tmp'):
-    """Procesar un único archivo ZIP de S3, extraer y guardar los resultados en chunks."""
+def process_single_file(s3_key, label, output_dir='/tmp'):
+    """Procesar un único archivo ZIP de S3, extraer y verificar la variable."""
     extract_path = download_and_extract_zip_from_s3(s3_key, extract_to=output_dir)
     
     if extract_path:
@@ -70,7 +49,12 @@ def process_single_file(s3_key, label, chunk_size=1000, output_dir='/tmp'):
         if extracted_files:
             for file in extracted_files:
                 full_path = os.path.join(extract_path, file)
-                process_netcdf_in_chunks(full_path, label, chunk_size=chunk_size, output_dir=output_dir)
+                ds = xr.open_dataset(full_path)
+                ds = ds.assign_coords(variable_label=("variable_label", [label]))
+
+                # Imprimir las coordenadas del dataset procesado
+                print(f"\nCoordenadas del archivo {file} ({label}):")
+                print(ds.coords.to_dataset().to_dataframe())
         else:
             print(f"No se encontraron archivos NetCDF en {extract_path}")
     else:
@@ -78,20 +62,19 @@ def process_single_file(s3_key, label, chunk_size=1000, output_dir='/tmp'):
 
 def main():
     year = "2023"  # Año a procesar
-    chunk_size = 1000  # Tamaño del chunk para procesar
 
+    # Procesar solo tres archivos para la muestra
     file_to_label = {
         f'crop_development_stage_year_{year}.zip': 'DVS',
         f'total_above_ground_production_year_{year}.zip': 'TAGP',
         f'total_weight_storage_organs_year_{year}.zip': 'TWSO'
     }
 
+    # Procesar los tres archivos
     for s3_file, label in file_to_label.items():
         s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-        process_single_file(s3_key, label, chunk_size=chunk_size)
-        
-        # Pausar entre cada archivo para evitar sobrecargar el sistema
-        time.sleep(10)
+        process_single_file(s3_key, label)
+        break  # Procesar solo un archivo y salir para la muestra
 
 if __name__ == "__main__":
     main()
