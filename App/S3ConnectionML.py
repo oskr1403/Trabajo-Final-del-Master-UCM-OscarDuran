@@ -4,6 +4,7 @@ import tempfile
 import zipfile
 import xarray as xr
 import numpy as np
+import time
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -82,6 +83,9 @@ def process_files_for_year(year):
                 print(f"No se encontraron archivos NetCDF en {extract_path}")
         else:
             print(f"Archivo para '{label}' en el año {year} no encontrado en S3")
+        
+        # Pausar entre cada archivo para evitar sobrecargar el sistema
+        time.sleep(10)  # Pausa de 10 segundos entre cada archivo
     
     if all_data:
         # Combinar todos los datasets en uno solo
@@ -91,16 +95,23 @@ def process_files_for_year(year):
         return None
 
 def main():
-    year = "2023"  # Año a procesar
+    years = ["2023"]  # Lista de años a procesar
 
-    # Procesar en lotes por año
-    combined_ds = process_files_for_year(year)
-    if combined_ds is not None:
-        print(f"Datos combinados para el año {year}:")
-        print(combined_ds)
-    else:
-        print(f"No se encontraron datos combinados para el año {year}.")
+    for year in years:
+        # Procesar en lotes por año
+        combined_ds = process_files_for_year(year)
+        if combined_ds is not None:
+            print(f"Datos combinados para el año {year}:")
+            print(combined_ds)
+            
+            # Imprimir las coordenadas para verificar las etiquetas
+            print("\nCoordenadas del Dataset Combinado:")
+            print(combined_ds.coords)
+        else:
+            print(f"No se encontraron datos combinados para el año {year}.")
+        
+        # Pausar entre el procesamiento de años para evitar sobrecarga
+        time.sleep(60)  # Pausa de 60 segundos entre el procesamiento de años
 
 if __name__ == "__main__":
     main()
-
