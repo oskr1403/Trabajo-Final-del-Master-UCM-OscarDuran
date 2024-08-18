@@ -12,8 +12,8 @@ if not os.getenv("GITHUB_ACTIONS"):
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = "us-east-2"  # Actualizado a us-east-2
-BUCKET_NAME = "trabajofinalmasterucmoscarduran"  # Actualizado al nuevo bucket name
+AWS_REGION = "us-east-2"  # Región actualizada
+BUCKET_NAME = "trabajofinalmasterucmoscarduran"  # Bucket actualizado
 
 # Crear cliente S3
 s3_client = boto3.client(
@@ -51,11 +51,18 @@ def read_netcdf_with_xarray(file_path, variable_label):
         print(f"Archivo {file_path} no encontrado.")
         return None
 
-def process_files_for_year(year, variables):
+def process_files_for_year(year):
     """Descargar, extraer y procesar archivos NetCDF para un año específico, con etiquetas."""
     all_data = []
-    for var, var_label in variables.items():
-        s3_key = f'crop_productivity_indicators/{year}/{var}_year_{year}.zip'
+    # Definir el mapeo entre el nombre del archivo y la etiqueta de la variable
+    file_to_label = {
+        f'crop_development_stage_year_{year}.zip': 'DVS',
+        f'total_above_ground_production_year_{year}.zip': 'TAGP',
+        f'total_weight_storage_organs_year_{year}.zip': 'TWSO'
+    }
+
+    for s3_file, label in file_to_label.items():
+        s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
         extract_path = download_and_extract_zip_from_s3(s3_key)
         
         if extract_path:
@@ -64,17 +71,17 @@ def process_files_for_year(year, variables):
             if extracted_files:
                 for file in extracted_files:
                     full_path = os.path.join(extract_path, file)
-                    ds = read_netcdf_with_xarray(full_path, var_label)
+                    ds = read_netcdf_with_xarray(full_path, label)
                     if ds is not None:
-                        print(f"Datos del archivo {file} ({var_label}):")
+                        print(f"Datos del archivo {file} ({label}):")
                         print(ds)
                         all_data.append(ds)
                     else:
-                        print(f"No se pudieron cargar los datos para '{var_label}' en {full_path}")
+                        print(f"No se pudieron cargar los datos para '{label}' en {full_path}")
             else:
                 print(f"No se encontraron archivos NetCDF en {extract_path}")
         else:
-            print(f"Archivo para '{var_label}' en el año {year} no encontrado en S3")
+            print(f"Archivo para '{label}' en el año {year} no encontrado en S3")
     
     if all_data:
         # Combinar todos los datasets en uno solo
@@ -84,22 +91,16 @@ def process_files_for_year(year, variables):
         return None
 
 def main():
-    # Ajustar las variables con los nombres correspondientes
-    variables = {
-        'crop_development_stage': 'DVS',
-        'total_above_ground_production': 'TAGP',
-        'total_weight_storage_organs': 'TWSO'
-    }
-    years = ["2023"]
+    year = "2023"  # Año a procesar
 
     # Procesar en lotes por año
-    for year in years:
-        combined_ds = process_files_for_year(year, variables)
-        if combined_ds is not None:
-            print(f"Datos combinados para el año {year}:")
-            print(combined_ds)
-        else:
-            print(f"No se encontraron datos combinados para el año {year}.")
+    combined_ds = process_files_for_year(year)
+    if combined_ds is not None:
+        print(f"Datos combinados para el año {year}:")
+        print(combined_ds)
+    else:
+        print(f"No se encontraron datos combinados para el año {year}.")
 
 if __name__ == "__main__":
     main()
+
