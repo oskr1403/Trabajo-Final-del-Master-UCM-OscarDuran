@@ -14,8 +14,8 @@ if not os.getenv("GITHUB_ACTIONS"):
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = "us-east-2"
-BUCKET_NAME = "trabajofinalmasterucmoscarduran"
+AWS_REGION = "us-east-1"
+BUCKET_NAME = "maize-climate-data-store"
 
 # Crear cliente S3
 s3_client = boto3.client(
@@ -69,20 +69,47 @@ def download_and_extract_zip_from_s3(s3_prefix, extract_to='/tmp'):
     else:
         print(f"No se encontraron objetos en {s3_prefix}")
 
-def read_netcdf_with_xarray(file_path):
-    """Leer archivos NetCDF con xarray."""
+def read_netcdf_with_xarray(file_path, variable_label):
+    """Leer archivos NetCDF con xarray y agregar una etiqueta de variable."""
     try:
         ds = xr.open_dataset(file_path)
+        # Agregar una nueva coordenada o dimensión que identifique la variable
+        ds = ds.assign_coords(variable_label=("variable_label", [variable_label]))
         return ds
     except FileNotFoundError:
         print(f"Archivo {file_path} no encontrado.")
         return None
 
 def process_files_for_year(year, variables):
-    """Descargar, extraer y procesar archivos NetCDF para un año específico."""
-    for var in variables:
+    """Descargar, extraer y procesar archivos NetCDF para un año específico, con etiquetas."""
+    all_data = []
+    for var, var_label in variables.items():
         s3_prefix = f'crop_productivity_indicators/{year}/{var}_year_{year}.zip'
         download_and_extract_zip_from_s3(s3_prefix)
+        
+        extracted_files = os.listdir('/tmp')
+        file_prefix = f"Maize_{var}_C3S-glob-agric_{year}_1_{year}-"
+        matching_files = [f for f in extracted_files if f.startswith(file_prefix) and f.endswith('.nc')]
+
+        if matching_files:
+            for file in matching_files:
+                full_path = os.path.join('/tmp', file)
+                ds = read_netcdf_with_xarray(full_path, var_label)
+                if ds is not None:
+                    print(f"Datos del archivo {file} ({var_label}):")
+                    print(ds)
+                    all_data.append(ds)
+                else:
+                    print(f"No se pudieron cargar los datos para '{var_label}' en {full_path}")
+        else:
+            print(f"Archivo para '{var_label}' en el año {year} no encontrado en /tmp")
+    
+    if all_data:
+        # Combinar todos los datasets en uno solo
+        combined_ds = xr.concat(all_data, dim="variable_label")
+        return combined_ds
+    else:
+        return None
 
 def main():
     # Ajustar las variables con los nombres correspondientes
@@ -95,40 +122,12 @@ def main():
 
     # Procesar en lotes por año
     for year in years:
-        process_files_for_year(year, variables.values())
-
-    # Verificar los archivos extraídos
-    extracted_files = os.listdir('/tmp')
-    print("Archivos extraídos en /tmp:")
-    print(extracted_files)
-
-    # Procesar y explorar los archivos NetCDF con xarray
-    for short_var, long_var in variables.items():
-        for year in years:
-            # Buscar archivos NetCDF específicos en el directorio temporal usando los nombres extraídos
-            file_prefix = f"Maize_{short_var}_C3S-glob-agric_{year}_1_{year}-"
-            matching_files = [f for f in extracted_files if f.startswith(file_prefix) and f.endswith('.nc')]
-
-            if matching_files:
-                for file in matching_files:
-                    full_path = os.path.join('/tmp', file)
-                    ds = read_netcdf_with_xarray(full_path)
-                    if ds is not None:
-                        print(f"Datos del archivo {file} ({long_var}):")
-                        print(ds)
-                        print("\nVariables disponibles:")
-                        for data_var in ds.data_vars:
-                            print(f"{data_var}:")
-                            print(f" - Dimensiones: {ds[data_var].dims}")
-                            print(f" - Shape: {ds[data_var].shape}")
-                            print(f" - Valores no nulos: {np.count_nonzero(~np.isnan(ds[data_var].values))}")
-                            print(f" - Datos de muestra:\n{ds[data_var].values.flatten()[:10]}")
-                    else:
-                        print(f"No se pudieron cargar los datos para '{long_var}' en {full_path}")
-            else:
-                print(f"Archivo para '{long_var}' en el año {year} no encontrado en /tmp")
+        combined_ds = process_files_for_year(year, variables)
+        if combined_ds is not None:
+            print(f"Datos combinados para el año {year}:")
+            print(combined_ds)
+        else:
+            print(f"No se encontraron datos combinados para el año {year}.")
 
 if __name__ == "__main__":
     main()
-
-    
