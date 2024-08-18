@@ -42,17 +42,19 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         return None
 
 def process_netcdf_in_chunks(file_path, label, chunk_size=1000, output_dir='/tmp'):
-    """Procesar archivos NetCDF en chunks y guardar los resultados."""
+    """Procesar archivos NetCDF en chunks y guardar los resultados sin usar dask."""
     try:
-        ds = xr.open_dataset(file_path, chunks={'time': chunk_size})
+        ds = xr.open_dataset(file_path)
         ds = ds.assign_coords(variable_label=("variable_label", [label]))
+
+        # Procesar los datos en chunks manualmente
+        for i in range(0, ds.dims['time'], chunk_size):
+            chunk = ds.isel(time=slice(i, i + chunk_size))
+            output_file = os.path.join(output_dir, f"{label}_processed_chunk_{i}.nc")
+            chunk.to_netcdf(output_file)
+            print(f"Chunk {i} procesado y guardado en {output_file}")
         
-        # Procesar los chunks y guardar los resultados
-        output_file = os.path.join(output_dir, f"{label}_processed.nc")
-        ds.to_netcdf(output_file)
-        print(f"Datos procesados en chunks guardados en {output_file}")
-        
-        # Imprimir las coordenadas del dataset procesado
+        # Imprimir las coordenadas del dataset completo
         print("\nCoordenadas del Dataset Procesado:")
         print(ds.coords.to_dataframe())
     except Exception as e:
