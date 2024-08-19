@@ -81,33 +81,36 @@ def upload_dataframe_to_s3(df, filename):
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
 def main():
-    year = "2023"  # Año a procesar
+    years = ["2022", "2021", "2020", "2019"]  # Años a procesar
 
     # Diccionario con los archivos y las variables
-    file_to_variable = {
-        f'crop_development_stage_year_{year}.zip': 'DVS',
-        f'total_above_ground_production_year_{year}.zip': 'TAGP',
-        f'total_weight_storage_organs_year_{year}.zip': 'TWSO'
+    file_to_variable_template = {
+        'crop_development_stage_year_{year}.zip': 'DVS',
+        'total_above_ground_production_year_{year}.zip': 'TAGP',
+        'total_weight_storage_organs_year_{year}.zip': 'TWSO'
     }
 
-    dfs = []
+    for year in years:
+        dfs = []
 
-    for s3_file, variable_name in file_to_variable.items():
-        s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-        df = process_single_file(s3_key, variable_name)
-        if not df.empty:
-            dfs.append(df)
+        for file_template, variable_name in file_to_variable_template.items():
+            s3_file = file_template.format(year=year)
+            s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
+            df = process_single_file(s3_key, variable_name)
+            if not df.empty:
+                dfs.append(df)
 
-    # Combinar los DataFrames en uno solo
-    if dfs:
-        combined_df = pd.concat(dfs, axis=0)
-        print("DataFrame combinado:")
-        print(combined_df.head())  # Mostrar solo las primeras filas
+        # Combinar los DataFrames en uno solo
+        if dfs:
+            combined_df = pd.concat(dfs, axis=0)
+            print(f"DataFrame combinado para el año {year}:")
+            print(combined_df.head())  # Mostrar solo las primeras filas
 
-        # Subir el DataFrame combinado a S3
-        upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
-    else:
-        print("No se pudieron procesar archivos o no hay datos no nulos.")
+            # Subir el DataFrame combinado a S3
+            upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
+        else:
+            print(f"No se pudieron procesar archivos o no hay datos no nulos para el año {year}.")
 
 if __name__ == "__main__":
     main()
+
