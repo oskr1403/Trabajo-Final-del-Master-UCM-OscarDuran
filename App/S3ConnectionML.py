@@ -68,6 +68,18 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp'):
         print(f"Archivo para '{variable_name}' no encontrado en S3")
     return pd.DataFrame()  # Retornar un DataFrame vacío si hay algún error
 
+def upload_dataframe_to_s3(df, filename):
+    """Subir un DataFrame como archivo CSV a S3."""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_csv:
+            df.to_csv(temp_csv.name, index=False)
+            temp_csv.seek(0)
+            s3_key = f'processed_data/{filename}'
+            s3_client.upload_file(temp_csv.name, BUCKET_NAME, s3_key)
+        print(f"DataFrame subido a S3 en {s3_key}")
+    except Exception as e:
+        print(f"Error al subir el DataFrame a S3: {str(e)}")
+
 def main():
     year = "2023"  # Año a procesar
 
@@ -91,9 +103,11 @@ def main():
         combined_df = pd.concat(dfs, axis=0)
         print("DataFrame combinado:")
         print(combined_df.head())  # Mostrar solo las primeras filas
+
+        # Subir el DataFrame combinado a S3
+        upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
     else:
         print("No se pudieron procesar archivos o no hay datos no nulos.")
 
 if __name__ == "__main__":
     main()
-
