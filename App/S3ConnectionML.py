@@ -40,8 +40,8 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         print(f"Error al descargar y extraer {s3_key} desde S3: {str(e)}")
         return None
 
-def process_single_file(s3_key, label, output_dir='/tmp'):
-    """Procesar un único archivo ZIP de S3, extraer y verificar la variable."""
+def process_single_file(s3_key, variable_name, output_dir='/tmp'):
+    """Procesar un único archivo ZIP de S3, extraer y filtrar los valores no nulos de una variable."""
     extract_path = download_and_extract_zip_from_s3(s3_key, extract_to=output_dir)
     
     if extract_path:
@@ -50,37 +50,50 @@ def process_single_file(s3_key, label, output_dir='/tmp'):
             for file in extracted_files:
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
-                ds = ds.assign_coords(variable_label=("variable_label", [label]))
 
-                # Extraer lat, lon, time y variable_label
-                df = ds[['lat', 'lon', 'time']].to_dataframe().reset_index()
+                # Filtrar los valores no nulos de la variable de interés
+                df = ds[[variable_name, 'lat', 'lon', 'time']].to_dataframe().reset_index()
+                df = df.dropna(subset=[variable_name])  # Eliminar filas con valores nulos en la variable
+                
+                # Renombrar la columna de la variable
+                df.rename(columns={variable_name: 'value'}, inplace=True)
+                
+                # Añadir una columna para identificar la variable
+                df['variable'] = variable_name
 
-                # Añadir la columna de la variable_label
-                df['variable_label'] = label
-
-                # Imprimir el DataFrame con lat, lon, time y variable_label
-                print(f"\nDataFrame del archivo {file} ({label}):")
-                print(df.head())  # Mostrar solo las primeras filas para simplicidad
+                return df
         else:
             print(f"No se encontraron archivos NetCDF en {extract_path}")
     else:
-        print(f"Archivo para '{label}' no encontrado en S3")
+        print(f"Archivo para '{variable_name}' no encontrado en S3")
+    return pd.DataFrame()  # Retornar un DataFrame vacío si hay algún error
 
 def main():
     year = "2023"  # Año a procesar
 
-    # Procesar solo tres archivos para la muestra
-    file_to_label = {
+    # Diccionario con los archivos y las variables
+    file_to_variable = {
         f'crop_development_stage_year_{year}.zip': 'DVS',
         f'total_above_ground_production_year_{year}.zip': 'TAGP',
         f'total_weight_storage_organs_year_{year}.zip': 'TWSO'
     }
 
-    # Procesar los tres archivos
-    for s3_file, label in file_to_label.items():
+    dfs = []
+
+    for s3_file, variable_name in file_to_variable.items():
         s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-        process_single_file(s3_key, label)
-        break  # Procesar solo un archivo y salir para la muestra
+        df = process_single_file(s3_key, variable_name)
+        if not df.empty:
+            dfs.append(df)
+
+    # Combinar los DataFrames en uno solo
+    if dfs:
+        combined_df = pd.concat(dfs, axis=0)
+        print("DataFrame combinado:")
+        print(combined_df.head())  # Mostrar solo las primeras filas
+    else:
+        print("No se pudieron procesar archivos o no hay datos no nulos.")
 
 if __name__ == "__main__":
     main()
+
