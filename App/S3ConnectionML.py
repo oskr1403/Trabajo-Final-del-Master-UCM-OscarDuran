@@ -80,10 +80,8 @@ def upload_dataframe_to_s3(df, filename):
     except Exception as e:
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
-def main():
-    year = "2023"  # Año a procesar
-
-    # Diccionario con los archivos y las variables
+def process_and_upload_for_year(year):
+    """Procesar y subir los archivos para un año específico."""
     file_to_variable = {
         f'crop_development_stage_year_{year}.zip': 'DVS',
         f'total_above_ground_production_year_{year}.zip': 'TAGP',
@@ -101,13 +99,19 @@ def main():
     # Combinar los DataFrames en uno solo
     if dfs:
         combined_df = pd.concat(dfs, axis=0)
-        print("DataFrame combinado:")
+        print(f"DataFrame combinado para {year}:")
         print(combined_df.head())  # Mostrar solo las primeras filas
 
         # Subir el DataFrame combinado a S3
         upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
     else:
-        print("No se pudieron procesar archivos o no hay datos no nulos.")
+        print(f"No se pudieron procesar archivos o no hay datos no nulos para {year}.")
+
+def main():
+    years = ["2019", "2020", "2021", "2022"]  # Años a procesar
+
+    for year in years:
+        process_and_upload_for_year(year)
 
 if __name__ == "__main__":
     main()
