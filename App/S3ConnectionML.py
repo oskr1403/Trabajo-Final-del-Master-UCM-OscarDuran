@@ -52,9 +52,15 @@ def process_single_file(s3_key, label, output_dir='/tmp'):
                 ds = xr.open_dataset(full_path)
                 ds = ds.assign_coords(variable_label=("variable_label", [label]))
 
-                # Imprimir las coordenadas del dataset procesado
-                print(f"\nCoordenadas del archivo {file} ({label}):")
-                print(ds.coords.to_dataset().to_dataframe())
+                # Extraer lat, lon, time y variable_label
+                df = ds[['lat', 'lon', 'time']].to_dataframe().reset_index()
+
+                # Añadir la columna de la variable_label
+                df['variable_label'] = label
+
+                # Imprimir el DataFrame con lat, lon, time y variable_label
+                print(f"\nDataFrame del archivo {file} ({label}):")
+                print(df.head())  # Mostrar solo las primeras filas para simplicidad
         else:
             print(f"No se encontraron archivos NetCDF en {extract_path}")
     else:
