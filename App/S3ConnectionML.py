@@ -51,6 +51,11 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp'):
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
 
+                # Verificar si la variable existe en el dataset
+                if variable_name not in ds.variables:
+                    print(f"La variable '{variable_name}' no se encontró en el archivo {file}.")
+                    continue
+
                 # Filtrar los valores no nulos de la variable de interés
                 df = ds[[variable_name, 'lat', 'lon', 'time']].to_dataframe().reset_index()
                 df = df.dropna(subset=[variable_name])  # Eliminar filas con valores nulos en la variable
@@ -113,4 +118,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
