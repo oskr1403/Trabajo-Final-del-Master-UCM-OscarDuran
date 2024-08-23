@@ -4,6 +4,7 @@ import tempfile
 import zipfile
 import xarray as xr
 import pandas as pd
+import sqlite3
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -85,8 +86,19 @@ def upload_dataframe_to_s3(df, filename):
     except Exception as e:
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
+def save_to_sqlite(df, db_name, table_name):
+    """Guardar un DataFrame en una tabla de SQLite."""
+    try:
+        conn = sqlite3.connect(db_name)
+        df.to_sql(table_name, conn, if_exists='append', index=False)
+        conn.close()
+        print(f"Datos guardados en la tabla '{table_name}' de la base de datos '{db_name}'")
+    except Exception as e:
+        print(f"Error al guardar los datos en SQLite: {str(e)}")
+
 def main():
     years = ["2023", "2022", "2021", "2020", "2019"]  # Años a procesar
+    db_name = "crop_productivity.db"  # Nombre del archivo de la base de datos
 
     # Diccionario con los archivos y las variables
     file_to_variable_template = {
@@ -110,6 +122,10 @@ def main():
             combined_df = pd.concat(dfs, axis=0)
             print(f"DataFrame combinado para el año {year}:")
             print(combined_df.head())  # Mostrar solo las primeras filas
+
+            # Guardar en la base de datos SQLite
+            table_name = f'crop_productivity_{year}'
+            save_to_sqlite(combined_df, db_name, table_name)
 
             # Subir el DataFrame combinado a S3
             upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
