@@ -4,6 +4,7 @@ import tempfile
 import zipfile
 import xarray as xr
 import pandas as pd
+import sqlite3
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -12,16 +13,31 @@ if not os.getenv("GITHUB_ACTIONS"):
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = "us-east-2"  # Región actualizada
-BUCKET_NAME = "trabajofinalmasterucmoscarduran"  # Bucket actualizado
+AWS_REGION = "us-east-2"
+BUCKET_NAME = "trabajofinalmasterucmoscarduran"
 
-# Crear cliente S3
-s3_client = boto3.client(
-    's3',
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION
-)
+# Conexión a la base de datos SQLite
+conn = sqlite3.connect('crop_productivity.db')
+
+def create_table_if_not_exists(conn):
+    """Crear la tabla si no existe."""
+    create_table_query = """
+    CREATE TABLE IF NOT EXISTS crop_data (
+        lat REAL,
+        lon REAL,
+        time TEXT,
+        value REAL,
+        variable TEXT,
+        year INT
+    );
+    """
+    conn.execute(create_table_query)
+    conn.commit()
+
+def insert_data_to_db(conn, df, year):
+    """Insertar los datos en la tabla de SQLite."""
+    df['year'] = year  # Añadir el año a los datos
+    df.to_sql('crop_data', conn, if_exists='append', index=False)
 
 def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
     """Descargar y extraer archivos ZIP desde S3."""
@@ -73,22 +89,10 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp'):
         print(f"Archivo para '{variable_name}' no encontrado en S3")
     return pd.DataFrame()  # Retornar un DataFrame vacío si hay algún error
 
-def upload_dataframe_to_s3(df, filename):
-    """Subir un DataFrame como archivo CSV a S3."""
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_csv:
-            df.to_csv(temp_csv.name, index=False)
-            temp_csv.seek(0)
-            s3_key = f'processed_data/{filename}'
-            s3_client.upload_file(temp_csv.name, BUCKET_NAME, s3_key)
-        print(f"DataFrame subido a S3 en {s3_key}")
-    except Exception as e:
-        print(f"Error al subir el DataFrame a S3: {str(e)}")
-
 def main():
-    years = ["2022", "2021", "2020", "2019"]  # Años a procesar
-
-    # Diccionario con los archivos y las variables
+    create_table_if_not_exists(conn)
+    years = ["2022", "2021", "2020", "2019"]
+    
     file_to_variable_template = {
         'crop_development_stage_year_{year}.zip': 'DVS',
         'total_above_ground_production_year_{year}.zip': 'TAGP',
@@ -105,16 +109,14 @@ def main():
             if not df.empty:
                 dfs.append(df)
 
-        # Combinar los DataFrames en uno solo
         if dfs:
             combined_df = pd.concat(dfs, axis=0)
             print(f"DataFrame combinado para el año {year}:")
             print(combined_df.head())  # Mostrar solo las primeras filas
-
-            # Subir el DataFrame combinado a S3
-            upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
-        else:
-            print(f"No se pudieron procesar archivos o no hay datos no nulos para el año {year}.")
+            
+            # Insertar los datos en la base de datos
+            insert_data_to_db(conn, combined_df, year)
 
 if __name__ == "__main__":
     main()
+    conn.close()  # No olvides cerrar la conexión al final
