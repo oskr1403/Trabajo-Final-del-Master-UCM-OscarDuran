@@ -18,7 +18,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install setuptools xarray cdsapi matplotlib boto3 python-dotenv numba netCDF4 scikit-learn numba seaborn sqlite3
+        pip install setuptools xarray cdsapi matplotlib boto3 python-dotenv numba netCDF4 scikit-learn seaborn
 
     - name: Copy .cdsapirc to home directory
       run:  cp App/.cdsapirc ~/.cdsapirc
@@ -45,5 +45,3 @@ jobs:
         git add crop_productivity.db
         git commit -m "Add/Update SQLite database"
         git push
-
-
