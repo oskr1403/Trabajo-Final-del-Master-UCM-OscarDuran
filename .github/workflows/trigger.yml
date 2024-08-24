@@ -24,18 +24,10 @@ jobs:
       run:  cp App/.cdsapirc ~/.cdsapirc
 
 
+
     - name: S3ConnectionMLpython
       working-directory: App
       run: python S3ConnectionML.py
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-    - name: Save SQLite Database
-      working-directory: App
-      run: |
-        git config --global user.email "oscarduran1403@hotmail.com"
-        git config --global user.name "oskr1403"
-        git add crop_productivity.db
-        git commit -m "Add/Update SQLite database"
-        git push
