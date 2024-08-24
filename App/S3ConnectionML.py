@@ -96,6 +96,14 @@ def save_to_sqlite(df, db_name, table_name):
     except Exception as e:
         print(f"Error al guardar los datos en SQLite: {str(e)}")
 
+def upload_db_to_s3(db_path, s3_key):
+    """Subir la base de datos SQLite a S3."""
+    try:
+        s3_client.upload_file(db_path, BUCKET_NAME, s3_key)
+        print(f"Base de datos SQLite subida a S3 en {s3_key}")
+    except Exception as e:
+        print(f"Error al subir la base de datos a S3: {str(e)}")
+
 def main():
     years = ["2023", "2022", "2021", "2020", "2019"]  # Años a procesar
     db_name = "crop_productivity.db"  # Nombre del archivo de la base de datos
@@ -131,6 +139,10 @@ def main():
             upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
         else:
             print(f"No se pudieron procesar archivos o no hay datos no nulos para el año {year}.")
+
+    # Subir la base de datos SQLite a S3
+    s3_db_key = 'databases/crop_productivity.db'
+    upload_db_to_s3(db_name, s3_db_key)
 
 if __name__ == "__main__":
     main()
