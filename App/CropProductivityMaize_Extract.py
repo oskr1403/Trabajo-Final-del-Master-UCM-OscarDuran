@@ -18,11 +18,7 @@ BUCKET_NAME = "trabajofinalmasterucmoscarduran"
 if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not AWS_REGION:
     raise ValueError("AWS credentials or region are not set properly.")
 
-# Define dataset, variables, and years
-dataset = "sis-agroproductivity-indicators"
-variables = ['crop_development_stage', 'total_above_ground_production', 'total_weight_storage_organs']
-years = ['2019', '2020', '2021', '2022', '2023']
-
+# Initialize CDS API client
 client = cdsapi.Client()
 
 def wait_for_job_to_complete(client, request):
@@ -33,7 +29,7 @@ def wait_for_job_to_complete(client, request):
             break  # Exit the loop if the job is complete and ready for download
         except Exception as e:
             if "Result not ready, job is running" in str(e):
-                print("Job is still running, waiting for 10 seconds before checking again...")
+                print("Job is still running, waiting for 100 seconds before checking again...")
                 time.sleep(100)  # wait for 100 seconds before checking again
             else:
                 raise  # Raise any other exceptions
@@ -46,8 +42,26 @@ def upload_to_s3(temp_file_path, s3_client, bucket_name, s3_key):
     else:
         print("Temporary file is empty. No data was retrieved.")
 
-# Method 2: Temporary File in Batches by Year
+# Define datasets and variables
+dataset = "sis-agroproductivity-indicators"
+variables = ['crop_development_stage', 'total_above_ground_production', 'total_weight_storage_organs']
+years = ['2019', '2020', '2021', '2022', '2023']
+
+# New bioclimatic variables and years
+bioclimatic_variables = ['annual_mean_temperature', 'annual_precipitation', 'aridity_annual_mean']
+bioclimatic_years = years
+
+# Initialize S3 client
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION
+)
+
+# Method 1: Temporary File in Batches by Year and Variable
 try:
+    # Extract maize productivity data
     for var in variables:
         for year in years:
             request = {
@@ -66,30 +80,40 @@ try:
                 temp_file_path = temp_file.name
                 print(f"Attempting to retrieve data for {var} in year {year} to temporary file: {temp_file_path}")
 
-                # Wait for the job to complete before downloading
                 wait_for_job_to_complete(client, request)
-
-                # Retrieve data and download it directly to the temporary file
                 response = client.retrieve(dataset, request)
                 response.download(temp_file_path)
                 print(f"Data download completed for {var} in year {year}. File saved to: {temp_file_path}")
 
-                # Upload the file to S3
-                s3_client = boto3.client(
-                    's3',
-                    aws_access_key_id=AWS_ACCESS_KEY_ID,
-                    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-                    region_name=AWS_REGION
-                )
-
                 s3_key = f'crop_productivity_indicators/{year}/{var}_year_{year}.zip'
+                upload_to_s3(temp_file_path, s3_client, BUCKET_NAME, s3_key)
+
+    # Extract bioclimatic data
+    for var in bioclimatic_variables:
+        for year in bioclimatic_years:
+            bioclimatic_request = {
+                'product_family': ['bioclimatic_indicators'],
+                'variable': [var],
+                'year': year,
+                'data_format': 'zip'
+            }
+
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                temp_file_path = temp_file.name
+                print(f"Attempting to retrieve bioclimatic data for {var} in year {year} to temporary file: {temp_file_path}")
+
+                wait_for_job_to_complete(client, bioclimatic_request)
+                response = client.retrieve("sis-biodiversity-cmip5-global", bioclimatic_request)
+                response.download(temp_file_path)
+                print(f"Bioclimatic data download completed for {var} in year {year}. File saved to: {temp_file_path}")
+
+                s3_key = f'bioclimatic_indicators/{year}/{var}_year_{year}.zip'
                 upload_to_s3(temp_file_path, s3_client, BUCKET_NAME, s3_key)
 
 except Exception as e:
     print(f"Error: {e}")
 
 finally:
-    # Clean up the temporary file
     try:
         os.remove(temp_file_path)
     except:
