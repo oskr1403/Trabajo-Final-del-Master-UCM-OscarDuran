@@ -1,6 +1,11 @@
 name: Python application
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * 1'  # Este cron job se ejecuta todos los lunes a la medianoche UTC
 
 jobs:
   build:
