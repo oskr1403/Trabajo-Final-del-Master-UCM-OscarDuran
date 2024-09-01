@@ -57,11 +57,17 @@ def main():
     # Descargar el archivo de datos agroclimáticos
     df_agroclimatic = download_csv_from_s3(agroclimatic_data_key)
     
+    # Convertir la columna 'time' a datetime
+    if not df_agroclimatic.empty:
+        df_agroclimatic['time'] = pd.to_datetime(df_agroclimatic['time'], errors='coerce')
+
     # Descargar y combinar todos los archivos de datos de maíz
     df_maize_combined = pd.DataFrame()
     for key in maize_data_keys:
         df_maize = download_csv_from_s3(key)
         if not df_maize.empty:
+            df_maize['time'] = pd.to_datetime(df_maize['time'], errors='coerce')  # Asegurar conversión a datetime
+            
             # Filtrar los datos agroclimáticos para el año actual del archivo de maíz
             year = int(key.split('_')[-1].split('.')[0])  # Extraer el año de la clave del archivo
             df_agroclimatic_filtered = df_agroclimatic[df_agroclimatic['time'].dt.year == year]
