@@ -46,9 +46,12 @@ def process_agroclimatic_data(s3_key, output_dir='/tmp'):
     
     if extract_path:
         extracted_files = [f for f in os.listdir(extract_path) if f.endswith('.nc')]
+        print(f"Extracted files: {extracted_files}")  # Debugging line
+
         if extracted_files:
             for file in extracted_files:
                 full_path = os.path.join(extract_path, file)
+                print(f"Processing file: {full_path}")  # Debugging line
                 ds = xr.open_dataset(full_path)
 
                 variables = ['growing_season_length', 'precipitation_sum', 'mean_temperature']
@@ -56,11 +59,14 @@ def process_agroclimatic_data(s3_key, output_dir='/tmp'):
 
                 for variable in variables:
                     if variable in ds.variables:
+                        print(f"Processing variable: {variable}")  # Debugging line
                         df = ds[[variable, 'lat', 'lon', 'time']].to_dataframe().reset_index()
                         df = df.dropna(subset=[variable])
                         df.rename(columns={variable: 'value'}, inplace=True)
                         df['variable'] = variable
                         dfs.append(df)
+                    else:
+                        print(f"Variable {variable} not found in {file}")  # Debugging line
 
                 if dfs:
                     combined_df = pd.concat(dfs, axis=0)
@@ -70,6 +76,7 @@ def process_agroclimatic_data(s3_key, output_dir='/tmp'):
     else:
         print(f"Data for {s3_key} not found in S3")
     return pd.DataFrame()
+
 
 def upload_dataframe_to_s3(df, filename):
     """Upload a DataFrame as a CSV file to S3."""
