@@ -62,8 +62,12 @@ def process_agroclimatic_data(s3_key, output_dir='/tmp'):
                     df = df.dropna(subset=[variable])
                     df.rename(columns={variable: 'value'}, inplace=True)
                     df['variable'] = 'growing_season_length'
-                    
-                    return df
+
+                    # Filtrar los datos entre 2019 y 2030
+                    df['time'] = pd.to_datetime(df['time'])
+                    df_filtered = df[(df['time'].dt.year >= 2019) & (df['time'].dt.year <= 2030)]
+
+                    return df_filtered
                 else:
                     print(f"Variable {variable} not found in {file}")
         else:
@@ -93,7 +97,7 @@ def main():
         print(df.head())
 
         # Upload processed DataFrame to S3
-        upload_dataframe_to_s3(df, 'agroclimatic_indicators_201101_204012.csv')
+        upload_dataframe_to_s3(df, 'agroclimatic_indicators_2019_2030.csv')
     else:
         print(f"No data processed for S3 key {s3_key}")
 
