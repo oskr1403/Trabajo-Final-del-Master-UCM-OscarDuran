@@ -43,14 +43,17 @@ def upload_dataframe_to_s3(df, s3_key):
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
 def merge_with_tolerance(df1, df2, tol=0.1):
-    """Realizar un merge aproximado usando merge_asof basado en la latitud, longitud y año."""
+    """Realizar un merge aproximado basado en la latitud, longitud y año."""
     
-    # Ordenar por latitud, longitud y año
-    df1 = df1.sort_values(by=['lat', 'lon', 'year'])
-    df2 = df2.sort_values(by=['lat', 'lon', 'year'])
+    # Ordenar por latitud y longitud
+    df1 = df1.sort_values(by=['lat', 'lon'])
+    df2 = df2.sort_values(by=['lat', 'lon'])
 
     # Realizar el merge_asof para aproximación
-    merged_df = pd.merge_asof(df1, df2, on=['lat', 'lon', 'year'], tolerance=tol, direction='nearest')
+    merged_df = pd.merge_asof(df1, df2, on=['lat', 'lon'], tolerance=tol, direction='nearest')
+
+    # Filtrar por coincidencia en el año
+    merged_df = merged_df[merged_df['year_crop'] == merged_df['year_agro']]
 
     return merged_df
 
@@ -72,10 +75,10 @@ def main():
     # Convertir la columna 'time' a datetime y extraer 'year'
     if not df_agroclimatic.empty:
         df_agroclimatic['time'] = pd.to_datetime(df_agroclimatic['time'], format='%d/%m/%Y', errors='coerce')
-        df_agroclimatic['year'] = df_agroclimatic['time'].dt.year
+        df_agroclimatic['year_agro'] = df_agroclimatic['time'].dt.year
         df_agroclimatic['lat'] = df_agroclimatic['lat'].round(2)
         df_agroclimatic['lon'] = df_agroclimatic['lon'].round(2)
-        df_agroclimatic.drop_duplicates(subset=['lat', 'lon', 'year'], inplace=True)
+        df_agroclimatic.drop_duplicates(subset=['lat', 'lon', 'year_agro'], inplace=True)
 
     # Descargar y combinar todos los archivos de datos de maíz
     df_maize_combined = pd.DataFrame()
@@ -84,15 +87,15 @@ def main():
         if not df_maize.empty:
             # Asignar el año correcto basado en el nombre del archivo
             year = int(key.split('_')[-1].split('.')[0])  # Extraer el año de la clave del archivo
-            df_maize['year'] = year
+            df_maize['year_crop'] = year
             
             # Redondear 'lat' y 'lon'
             df_maize['lat'] = df_maize['lat'].round(2)
             df_maize['lon'] = df_maize['lon'].round(2)
-            df_maize.drop_duplicates(subset=['lat', 'lon', 'year'], inplace=True)
+            df_maize.drop_duplicates(subset=['lat', 'lon', 'year_crop'], inplace=True)
             
             # Filtrar los datos agroclimáticos para el año actual del archivo de maíz
-            df_agroclimatic_filtered = df_agroclimatic[df_agroclimatic['year'] == year]
+            df_agroclimatic_filtered = df_agroclimatic[df_agroclimatic['year_agro'] == year]
             
             # Depuración: Imprimir las primeras filas de los DataFrames
             print(f"Datos de maíz para el año {year}:")
