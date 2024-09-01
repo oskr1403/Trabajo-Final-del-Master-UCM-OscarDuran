@@ -84,7 +84,7 @@ def upload_dataframe_to_s3(df, filename):
         print(f"Error uploading DataFrame to S3: {str(e)}")
 
 def main():
-    s3_key = 'agroclimatic_indicators/201101_204012.zip'  # Update with your actual S3 key
+    s3_key = 'agroclimatic_indicators/201101_204012_201101_204012.zip'  # Update with your actual S3 key
     df = process_agroclimatic_data(s3_key)
     
     if not df.empty:
