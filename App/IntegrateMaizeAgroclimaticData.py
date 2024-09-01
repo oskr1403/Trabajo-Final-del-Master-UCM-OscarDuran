@@ -70,9 +70,9 @@ def main():
     for key in maize_data_keys:
         df_maize = download_csv_from_s3(key)
         if not df_maize.empty:
-            # Convertir la columna 'time' a datetime y extraer 'year'
-            df_maize['time'] = pd.to_datetime(df_maize['time'], infer_datetime_format=True, errors='coerce')
-            df_maize['year'] = df_maize['time'].dt.year
+            # Asignar el año correcto basado en el nombre del archivo
+            year = int(key.split('_')[-1].split('.')[0])  # Extraer el año de la clave del archivo
+            df_maize['year'] = year
             
             # Redondear 'lat' y 'lon'
             df_maize['lat'] = df_maize['lat'].round(2)
@@ -80,7 +80,6 @@ def main():
             df_maize.drop_duplicates(subset=['lat', 'lon', 'year'], inplace=True)
             
             # Filtrar los datos agroclimáticos para el año actual del archivo de maíz
-            year = int(key.split('_')[-1].split('.')[0])  # Extraer el año de la clave del archivo
             df_agroclimatic_filtered = df_agroclimatic[df_agroclimatic['year'] == year]
             
             # Depuración: Imprimir las primeras filas de los DataFrames
