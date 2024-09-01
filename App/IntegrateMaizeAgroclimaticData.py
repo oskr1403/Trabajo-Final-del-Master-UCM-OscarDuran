@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 
 # Cargar variables de entorno
-if no os.getenv("GITHUB_ACTIONS"):
+if not os.getenv("GITHUB_ACTIONS"):
     load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
