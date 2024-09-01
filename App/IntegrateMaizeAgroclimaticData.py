@@ -43,27 +43,42 @@ def upload_dataframe_to_s3(df, s3_key):
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
 def main():
-    # Descargar los archivos CSV desde S3
-    maize_data_key = 'ruta/a/tu/datos_maiz.csv'  # Reemplaza con la clave S3 correcta
+    # Claves correctas para los archivos en S3
     agroclimatic_data_key = 'agroclimatic_indicators/processed/agroclimatic_indicators_2019_2030.csv'
     
-    df_maize = download_csv_from_s3(maize_data_key)
+    maize_data_keys = [
+        'processed_data/crop_productivity_2019.csv',
+        'processed_data/crop_productivity_2020.csv',
+        'processed_data/crop_productivity_2021.csv',
+        'processed_data/crop_productivity_2022.csv',
+        'processed_data/crop_productivity_2023.csv'
+    ]
+    
+    # Descargar el archivo de datos agroclimáticos
     df_agroclimatic = download_csv_from_s3(agroclimatic_data_key)
     
+    # Descargar y combinar todos los archivos de datos de maíz
+    df_maize_combined = pd.DataFrame()
+    for key in maize_data_keys:
+        df_maize = download_csv_from_s3(key)
+        if not df_maize.empty:
+            # Filtrar los datos agroclimáticos para el año actual del archivo de maíz
+            year = int(key.split('_')[-1].split('.')[0])  # Extraer el año de la clave del archivo
+            df_agroclimatic_filtered = df_agroclimatic[df_agroclimatic['time'].dt.year == year]
+            
+            # Realizar la unión (merge) por 'lat', 'lon', y 'time'
+            df_combined = pd.merge(df_maize, df_agroclimatic_filtered, on=['lat', 'lon', 'time'], how='inner')
+            
+            # Agregar el DataFrame combinado al conjunto total
+            df_maize_combined = pd.concat([df_maize_combined, df_combined], ignore_index=True)
+    
     # Verificar si ambos DataFrames fueron cargados correctamente
-    if not df_maize.empty and not df_agroclimatic.empty:
-        # Asegurarse de que la columna 'time' esté en formato datetime en ambos DataFrames
-        df_maize['time'] = pd.to_datetime(df_maize['time'])
-        df_agroclimatic['time'] = pd.to_datetime(df_agroclimatic['time'])
-        
-        # Realizar la unión (merge) por 'lat', 'lon', y 'time'
-        df_combined = pd.merge(df_maize, df_agroclimatic, on=['lat', 'lon', 'time'], how='inner')
-        
+    if not df_maize_combined.empty:
         # Subir el DataFrame combinado a S3
-        output_s3_key = 'ruta/a/tu/datos_combinados.csv'  # Reemplaza con la clave S3 deseada
-        upload_dataframe_to_s3(df_combined, output_s3_key)
+        output_s3_key = 'processed_data/crop_and_agroclimatic_data_2019_2023.csv'
+        upload_dataframe_to_s3(df_maize_combined, output_s3_key)
     else:
-        print("Error: No se pudieron cargar los datos de maíz o agroclimáticos.")
+        print("Error: No se pudieron cargar o combinar los datos de maíz y agroclimáticos.")
 
 if __name__ == "__main__":
     main()
