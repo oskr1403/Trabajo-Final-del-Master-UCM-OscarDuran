@@ -1,8 +1,8 @@
-import pandas as pd
+import os
 import boto3
+import pandas as pd
 from io import StringIO
 from dotenv import load_dotenv
-import os
 
 # Cargar variables de entorno
 if not os.getenv("GITHUB_ACTIONS"):
@@ -10,118 +10,83 @@ if not os.getenv("GITHUB_ACTIONS"):
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = "us-east-2"
-BUCKET_NAME = "trabajofinalmasterucmoscarduran"
+AWS_REGION = "us-east-2"  # Región actualizada
+BUCKET_NAME = "trabajofinalmasterucmoscarduran"  # Bucket actualizado
 
 # Crear cliente S3
-s3_client = boto3.client(
-    's3',
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION
-)
+s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=AWS_REGION)
 
 def download_csv_from_s3(s3_key):
-    """Descargar un archivo CSV desde S3 y cargarlo en un DataFrame de pandas."""
+    """Descargar un archivo CSV desde S3 y cargarlo en un DataFrame de Pandas."""
     try:
-        obj = s3_client.get_object(Bucket=BUCKET_NAME, Key=s3_key)
-        df = pd.read_csv(StringIO(obj['Body'].read().decode('utf-8')))
-        print(f"Archivo CSV {s3_key} descargado y cargado en DataFrame.")
-        return df
+        obj = s3.get_object(Bucket=BUCKET_NAME, Key=s3_key)
+        return pd.read_csv(StringIO(obj['Body'].read().decode('utf-8')))
     except Exception as e:
         print(f"Error al descargar el archivo CSV desde S3: {str(e)}")
-        return pd.DataFrame()
+        return None
 
-def upload_dataframe_to_s3(df, s3_key):
-    """Subir un DataFrame como archivo CSV a S3."""
-    try:
-        csv_buffer = StringIO()
-        df.to_csv(csv_buffer, index=False)
-        s3_client.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=csv_buffer.getvalue())
-        print(f"DataFrame subido a S3 en {s3_key}")
-    except Exception as e:
-        print(f"Error al subir el DataFrame a S3: {str(e)}")
-
-def merge_with_tolerance(df1, df2, tol=0.1):
-    """Realizar un merge aproximado basado en la latitud y longitud con una tolerancia de 0.1 grados."""
-    
-    # Crear columnas adicionales con las latitudes y longitudes redondeadas
+def merge_with_tolerance(df1, df2, tol=0.15):
+    """Combinar dos DataFrames basados en latitud y longitud con una tolerancia especificada."""
+    # Redondear lat y lon para la tolerancia
     df1['lat_rounded'] = df1['lat'].round(1)
     df1['lon_rounded'] = df1['lon'].round(1)
     df2['lat_rounded'] = df2['lat'].round(1)
     df2['lon_rounded'] = df2['lon'].round(1)
     
-    # Realizar la unión (merge) basada en las coordenadas redondeadas
-    merged_df = pd.merge(df1, df2, on=['lat_rounded', 'lon_rounded'], suffixes=('_crop', '_agro'))
-    
-    # Filtrar los resultados para aplicar la tolerancia en las coordenadas reales
-    condition = (
-        (abs(merged_df['lat_crop'] - merged_df['lat_agro']) <= tol) &
-        (abs(merged_df['lon_crop'] - merged_df['lon_agro']) <= tol)
-    )
-    
-    merged_df = merged_df[condition]
-    
-    # Limpiar las columnas auxiliares
-    merged_df.drop(columns=['lat_rounded', 'lon_rounded'], inplace=True)
-
+    # Realizar el merge
+    merged_df = pd.merge(df1, df2, on=['lat_rounded', 'lon_rounded'], how='inner', suffixes=('_crop', '_agro'))
     return merged_df
 
-def main():
-    # Claves correctas para los archivos en S3
-    agroclimatic_data_key = 'agroclimatic_indicators/processed/agroclimatic_indicators_2019_2030.csv'
-    
-    maize_data_keys = [
-        'processed_data/crop_productivity_2019.csv',
-        'processed_data/crop_productivity_2020.csv',
-        'processed_data/crop_productivity_2021.csv',
-        'processed_data/crop_productivity_2022.csv',
-        'processed_data/crop_productivity_2023.csv'
-    ]
-    
-    # Descargar el archivo de datos agroclimáticos
-    df_agroclimatic = download_csv_from_s3(agroclimatic_data_key)
-    
-    # Convertir la columna 'time' a datetime y extraer 'year'
-    if not df_agroclimatic.empty:
-        df_agroclimatic['time'] = pd.to_datetime(df_agroclimatic['time'], format='%d/%m/%Y', errors='coerce')
-        df_agroclimatic['lat'] = df_agroclimatic['lat'].round(2)
-        df_agroclimatic['lon'] = df_agroclimatic['lon'].round(2)
-        df_agroclimatic.drop_duplicates(subset=['lat', 'lon'], inplace=True)
+def upload_to_s3(df, filename):
+    """Subir un DataFrame como archivo CSV a S3."""
+    try:
+        csv_buffer = StringIO()
+        df.to_csv(csv_buffer, index=False)
+        s3_key = f'Merged_data/processed_data/{filename}'
+        s3.put_object(Bucket=BUCKET_NAME, Key=s3_key, Body=csv_buffer.getvalue())
+        print(f"DataFrame subido a S3 en {s3_key}")
+    except Exception as e:
+        print(f"Error al subir el DataFrame a S3: {str(e)}")
 
-    # Descargar y combinar todos los archivos de datos de maíz
-    df_maize_combined = pd.DataFrame()
-    for key in maize_data_keys:
-        df_maize = download_csv_from_s3(key)
-        if not df_maize.empty:
-            # Redondear 'lat' y 'lon'
-            df_maize['lat'] = df_maize['lat'].round(2)
-            df_maize['lon'] = df_maize['lon'].round(2)
-            df_maize.drop_duplicates(subset=['lat', 'lon'], inplace=True)
-            
-            # Depuración: Imprimir las primeras filas de los DataFrames
-            print(f"Datos de maíz del archivo {key}:")
-            print(df_maize.head())
-            print("Datos agroclimáticos:")
-            print(df_agroclimatic.head())
-            
-            # Realizar la unión (merge) con tolerancia en las coordenadas
-            df_combined = merge_with_tolerance(df_maize, df_agroclimatic, tol=0.1)
-            
-            # Verificar si la combinación resultó en un DataFrame vacío
-            if df_combined.empty:
-                print(f"Advertencia: La combinación para el archivo {key} resultó en un DataFrame vacío.")
-            else:
-                # Agregar el DataFrame combinado al conjunto total
-                df_maize_combined = pd.concat([df_maize_combined, df_combined], ignore_index=True)
+def main():
+    agroclimatic_key = 'agroclimatic_indicators/processed/agroclimatic_indicators_2019_2030.csv'
+    df_agroclimatic = download_csv_from_s3(agroclimatic_key)
     
-    # Verificar si ambos DataFrames fueron cargados correctamente
-    if not df_maize_combined.empty:
-        # Subir el DataFrame combinado a S3
-        output_s3_key = 'processed_data/crop_and_agroclimatic_data_combined.csv'
-        upload_dataframe_to_s3(df_maize_combined, output_s3_key)
+    if df_agroclimatic is None:
+        print("No se pudieron cargar los datos agroclimáticos.")
+        return
+
+    print(f"Datos agroclimáticos cargados con {len(df_agroclimatic)} registros")
+
+    combined_dfs = []
+    for year in range(2019, 2024):
+        crop_key = f'crop_productivity_indicators/processed_data/crop_productivity_{year}.csv'
+        df_maize = download_csv_from_s3(crop_key)
+        
+        if df_maize is None:
+            print(f"No se pudieron cargar los datos de maíz para el año {year}.")
+            continue
+        
+        print(f"Datos de maíz del archivo {crop_key}:")
+        print(df_maize.head())
+        
+        # Filtrar agroclimatic por año
+        df_agroclimatic_filtered = df_agroclimatic.copy()  # Trabajar con una copia
+        
+        if not df_agroclimatic_filtered.empty:
+            print(f"Datos agroclimáticos filtrados para el año {year}:")
+            print(df_agroclimatic_filtered.head())
+            df_combined = merge_with_tolerance(df_maize, df_agroclimatic_filtered, tol=0.15)
+            combined_dfs.append(df_combined)
+        else:
+            print(f"Advertencia: No se encontraron datos agroclimáticos para el año {year}.")
+
+    # Concatenar todos los DataFrames combinados
+    if combined_dfs:
+        final_df = pd.concat(combined_dfs, ignore_index=True)
+        upload_to_s3(final_df, 'crop_and_agroclimatic_data_combined.csv')
     else:
-        print("Error: No se pudieron cargar o combinar los datos de maíz y agroclimáticos.")
+        print("Error: No se pudieron combinar los datos de maíz y agroclimáticos.")
 
 if __name__ == "__main__":
     main()
