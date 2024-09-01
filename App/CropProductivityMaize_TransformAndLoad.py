@@ -13,8 +13,8 @@ if not os.getenv("GITHUB_ACTIONS"):
 
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = "us-east-2"  # Región actualizada
-BUCKET_NAME = "trabajofinalmasterucmoscarduran"  # Bucket actualizado
+AWS_REGION = "us-east-2"
+BUCKET_NAME = "trabajofinalmasterucmoscarduran"
 
 # Crear cliente S3
 s3_client = boto3.client(
@@ -48,6 +48,7 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp'):
     if extract_path:
         extracted_files = [f for f in os.listdir(extract_path) if f.endswith('.nc')]
         if extracted_files:
+            dfs = []
             for file in extracted_files:
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
@@ -67,7 +68,11 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp'):
                 # Añadir una columna para identificar la variable
                 df['variable'] = variable_name
 
-                return df
+                dfs.append(df)
+            
+            if dfs:
+                combined_df = pd.concat(dfs, axis=0)
+                return combined_df
         else:
             print(f"No se encontraron archivos NetCDF en {extract_path}")
     else:
@@ -125,9 +130,11 @@ def main():
             if not df.empty:
                 dfs.append(df)
 
-        # Combinar los DataFrames en uno solo
+        # Combinar los DataFrames en uno solo y asegurar que solo contiene datos del año correspondiente
         if dfs:
             combined_df = pd.concat(dfs, axis=0)
+            combined_df['time'] = pd.to_datetime(combined_df['time'])
+            combined_df = combined_df[combined_df['time'].dt.year == int(year)]
             print(f"DataFrame combinado para el año {year}:")
             print(combined_df.head())  # Mostrar solo las primeras filas
 
