@@ -57,26 +57,45 @@ def main():
     # Descargar el archivo de datos agroclimáticos
     df_agroclimatic = download_csv_from_s3(agroclimatic_data_key)
     
-    # Convertir la columna 'time' a datetime
+    # Convertir la columna 'time' a datetime y redondear 'lat' y 'lon'
     if not df_agroclimatic.empty:
-        df_agroclimatic['time'] = pd.to_datetime(df_agroclimatic['time'], errors='coerce')
+        df_agroclimatic['time'] = pd.to_datetime(df_agroclimatic['time'], format='%d/%m/%Y', errors='coerce')
+        df_agroclimatic['lat'] = df_agroclimatic['lat'].round(2)
+        df_agroclimatic['lon'] = df_agroclimatic['lon'].round(2)
 
     # Descargar y combinar todos los archivos de datos de maíz
     df_maize_combined = pd.DataFrame()
     for key in maize_data_keys:
         df_maize = download_csv_from_s3(key)
         if not df_maize.empty:
-            df_maize['time'] = pd.to_datetime(df_maize['time'], errors='coerce')  # Asegurar conversión a datetime
+            df_maize['time'] = pd.to_datetime(df_maize['time'], format='%d/%m/%Y', errors='coerce')  # Convertir a datetime
+            df_maize['lat'] = df_maize['lat'].round(2)
+            df_maize['lon'] = df_maize['lon'].round(2)
             
             # Filtrar los datos agroclimáticos para el año actual del archivo de maíz
             year = int(key.split('_')[-1].split('.')[0])  # Extraer el año de la clave del archivo
             df_agroclimatic_filtered = df_agroclimatic[df_agroclimatic['time'].dt.year == year]
             
+            # Depuración: Imprimir las primeras filas de los DataFrames
+            print(f"Datos de maíz para el año {year}:")
+            print(df_maize.head())
+            print(f"Datos agroclimáticos filtrados para el año {year}:")
+            print(df_agroclimatic_filtered.head())
+            
+            # Verificar si los datos filtrados están vacíos
+            if df_agroclimatic_filtered.empty:
+                print(f"Advertencia: No se encontraron datos agroclimáticos para el año {year}.")
+                continue
+            
             # Realizar la unión (merge) por 'lat', 'lon', y 'time'
             df_combined = pd.merge(df_maize, df_agroclimatic_filtered, on=['lat', 'lon', 'time'], how='inner')
             
-            # Agregar el DataFrame combinado al conjunto total
-            df_maize_combined = pd.concat([df_maize_combined, df_combined], ignore_index=True)
+            # Verificar si la combinación resultó en un DataFrame vacío
+            if df_combined.empty:
+                print(f"Advertencia: La combinación para el año {year} resultó en un DataFrame vacío.")
+            else:
+                # Agregar el DataFrame combinado al conjunto total
+                df_maize_combined = pd.concat([df_maize_combined, df_combined], ignore_index=True)
     
     # Verificar si ambos DataFrames fueron cargados correctamente
     if not df_maize_combined.empty:
