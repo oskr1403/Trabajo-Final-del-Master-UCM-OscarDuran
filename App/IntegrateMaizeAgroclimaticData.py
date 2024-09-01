@@ -40,10 +40,16 @@ def main():
         if df_maize is not None:
             print(f"Datos de maíz del archivo {crop_key}:")
             print(df_maize.head())
-            df_combined = merge_with_tolerance(df_maize, df_agroclimatic, tol=0.15)
+            
+            # Filtrar el DataFrame de maíz por el año específico
+            df_maize['time_crop'] = pd.to_datetime(df_maize['time_crop'], errors='coerce')
+            df_maize_filtered = df_maize[df_maize['time_crop'].dt.year == year]
+
+            df_combined = merge_with_tolerance(df_maize_filtered, df_agroclimatic, tol=0.15)
             if not df_combined.empty:
                 print(f"Datos combinados para el año {year}:")
                 print(df_combined.head())
+                
                 # Guardar los datos combinados en S3
                 output_key = f'Merged_data/processed_data/crop_and_agroclimatic_data_{year}.csv'
                 csv_buffer = StringIO()
