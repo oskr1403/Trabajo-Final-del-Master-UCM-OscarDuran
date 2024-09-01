@@ -68,7 +68,12 @@ def main():
     for key in maize_data_keys:
         df_maize = download_csv_from_s3(key)
         if not df_maize.empty:
-            df_maize['time'] = pd.to_datetime(df_maize['time'], format='%d/%m/%Y', errors='coerce')  # Convertir a datetime
+            # Asegurar que el formato de la fecha sea correcto
+            df_maize['time'] = pd.to_datetime(df_maize['time'], format='%d/%m/%Y', errors='coerce')
+            print(f"Fechas convertidas para el año {key.split('_')[-1].split('.')[0]}:")
+            print(df_maize['time'].head())
+            
+            # Redondear 'lat' y 'lon'
             df_maize['lat'] = df_maize['lat'].round(2)
             df_maize['lon'] = df_maize['lon'].round(2)
             
