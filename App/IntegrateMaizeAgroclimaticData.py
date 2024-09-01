@@ -42,11 +42,14 @@ def main():
             print(df_maize.head())
             
             # Utilizar la columna 'time' en lugar de 'time_crop'
-            df_maize['time_crop'] = pd.to_datetime(df_maize['time'], errors='coerce')
-            df_maize_filtered = df_maize[df_maize['time_crop'].dt.year == year]
+            df_maize['time'] = pd.to_datetime(df_maize['time'], errors='coerce')
+            df_maize_filtered = df_maize[df_maize['time'].dt.year == year]
             
             # Filtrar también los datos agroclimáticos según el año
             df_agroclimatic_filtered = df_agroclimatic[df_agroclimatic['time'].str.contains(str(year))]
+
+            # Renombrar columnas para evitar conflicto en el merge
+            df_maize_filtered.rename(columns={'time': 'time_crop'}, inplace=True)
 
             df_combined = merge_with_tolerance(df_maize_filtered, df_agroclimatic_filtered, tol=0.15)
             if not df_combined.empty:
