@@ -16,7 +16,7 @@ def download_csv_from_s3(s3_key):
         print(f"Error al descargar el archivo CSV desde S3: No se pudo encontrar la clave {s3_key}.")
         return None
 
-def merge_with_tolerance(df1, df2, tol=0.1):
+def merge_with_tolerance(df1, df2, tol=0.15):
     df1['lat_rounded'] = df1['lat'].round(1)
     df1['lon_rounded'] = df1['lon'].round(1)
     df2['lat_rounded'] = df2['lat'].round(1)
@@ -44,6 +44,13 @@ def main():
             if not df_combined.empty:
                 print(f"Datos combinados para el año {year}:")
                 print(df_combined.head())
+                # Guardar los datos combinados en S3
+                output_key = f'Merged_data/processed_data/crop_and_agroclimatic_data_{year}.csv'
+                csv_buffer = StringIO()
+                df_combined.to_csv(csv_buffer, index=False)
+                s3 = boto3.client('s3')
+                s3.put_object(Bucket='trabajofinalmasterucmoscarduran', Key=output_key, Body=csv_buffer.getvalue())
+                print(f"Datos combinados guardados en {output_key}")
             else:
                 print(f"No se encontraron coincidencias en los datos combinados para el año {year}.")
         else:
