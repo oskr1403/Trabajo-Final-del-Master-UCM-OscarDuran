@@ -41,9 +41,9 @@ def main():
             print(f"Datos de maíz del archivo {crop_key}:")
             print(df_maize.head())
             
-            # Filtrar el DataFrame de maíz por el año específico
-            df_maize['time_crop'] = pd.to_datetime(df_maize['time_crop'], errors='coerce')
-            df_maize_filtered = df_maize[df_maize['time_crop'].dt.year == year]
+            # Utilizar la columna 'time' en lugar de 'time_crop'
+            df_maize['time'] = pd.to_datetime(df_maize['time'], errors='coerce')
+            df_maize_filtered = df_maize[df_maize['time'].dt.year == year]
 
             df_combined = merge_with_tolerance(df_maize_filtered, df_agroclimatic, tol=0.15)
             if not df_combined.empty:
