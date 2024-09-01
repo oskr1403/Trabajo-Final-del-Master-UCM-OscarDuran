@@ -42,8 +42,8 @@ def upload_dataframe_to_s3(df, s3_key):
     except Exception as e:
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
-def merge_with_tolerance(df1, df2, tol=0.5):
-    """Realizar un merge aproximado basado en la latitud y longitud con una tolerancia de 0.5."""
+def merge_with_tolerance(df1, df2, tol=0.1):
+    """Realizar un merge aproximado basado en la latitud y longitud con una tolerancia de 0.1 grados."""
     
     # Crear columnas adicionales con las latitudes y longitudes redondeadas
     df1['lat_rounded'] = df1['lat'].round(1)
@@ -106,7 +106,7 @@ def main():
             print(df_agroclimatic.head())
             
             # Realizar la unión (merge) con tolerancia en las coordenadas
-            df_combined = merge_with_tolerance(df_maize, df_agroclimatic, tol=0.5)
+            df_combined = merge_with_tolerance(df_maize, df_agroclimatic, tol=0.1)
             
             # Verificar si la combinación resultó en un DataFrame vacío
             if df_combined.empty:
