@@ -1,61 +1,80 @@
 import boto3
+import os
 import pandas as pd
 from io import StringIO
-from botocore.exceptions import NoCredentialsError
+
+# Configura el cliente S3
+s3 = boto3.client('s3')
+bucket_name = 'trabajofinalmasterucmoscarduran'
 
 def download_csv_from_s3(s3_key):
-    s3 = boto3.client('s3')
+    """Descargar un archivo CSV desde S3 y cargarlo en un DataFrame."""
     try:
-        obj = s3.get_object(Bucket='trabajofinalmasterucmoscarduran', Key=s3_key)
-        data = obj['Body'].read().decode('utf-8')
-        return pd.read_csv(StringIO(data))
-    except NoCredentialsError:
-        print("Credenciales no disponibles")
-        return None
-    except s3.exceptions.NoSuchKey:
-        print(f"Error al descargar el archivo CSV desde S3: No se pudo encontrar la clave {s3_key}.")
+        obj = s3.get_object(Bucket=bucket_name, Key=s3_key)
+        df = pd.read_csv(StringIO(obj['Body'].read().decode('utf-8')))
+        return df
+    except Exception as e:
+        print(f"Error al descargar el archivo CSV desde S3: {e}")
         return None
 
-def merge_with_tolerance(df1, df2, tol=0.15):
-    df1['lat_rounded'] = df1['lat'].round(1)
-    df1['lon_rounded'] = df1['lon'].round(1)
-    df2['lat_rounded'] = df2['lat'].round(1)
-    df2['lon_rounded'] = df2['lon'].round(1)
+def upload_dataframe_to_s3(df, filename):
+    """Subir un DataFrame como archivo CSV a S3."""
+    try:
+        with StringIO() as csv_buffer:
+            df.to_csv(csv_buffer, index=False)
+            s3.put_object(Bucket=bucket_name, Key=filename, Body=csv_buffer.getvalue())
+        print(f"DataFrame subido a S3 en {filename}")
+    except Exception as e:
+        print(f"Error al subir el DataFrame a S3: {str(e)}")
 
-    merged_df = pd.merge(df1, df2, on=['lat_rounded', 'lon_rounded'], how='inner', suffixes=('_crop', '_agro'))
-    return merged_df
+def filter_agroclimatic_data_by_year(df_agroclimatic, year):
+    """Filtrar los datos agroclimáticos para mantener solo el año específico."""
+    df_agroclimatic['year_agro'] = pd.to_datetime(df_agroclimatic['time']).dt.year
+    return df_agroclimatic[df_agroclimatic['year_agro'] == year]
 
 def main():
     agroclimatic_key = 'agroclimatic_indicators/processed/agroclimatic_indicators_2019_2030.csv'
     df_agroclimatic = download_csv_from_s3(agroclimatic_key)
-    if df_agroclimatic is not None:
-        print(f"Datos agroclimáticos cargados con {len(df_agroclimatic)} registros")
-    else:
+    
+    if df_agroclimatic is None:
         print("No se pudieron cargar los datos agroclimáticos.")
         return
 
+    print(f"Datos agroclimáticos cargados con {len(df_agroclimatic)} registros")
+    
+    future_data = []
+
     for year in range(2019, 2024):
-        crop_key = f'processed_data/crop_productivity_{year}.csv'
-        df_maize = download_csv_from_s3(crop_key)
-        if df_maize is not None:
-            print(f"Datos de maíz del archivo {crop_key}:")
-            print(df_maize.head())
-            df_combined = merge_with_tolerance(df_maize, df_agroclimatic, tol=0.15)
-            if not df_combined.empty:
-                print(f"Datos combinados para el año {year}:")
-                print(df_combined.head())
-                # Guardar los datos combinados en S3
-                output_key = f'Merged_data/processed_data/crop_and_agroclimatic_data_{year}.csv'
-                csv_buffer = StringIO()
-                df_combined.to_csv(csv_buffer, index=False)
-                s3 = boto3.client('s3')
-                s3.put_object(Bucket='trabajofinalmasterucmoscarduran', Key=output_key, Body=csv_buffer.getvalue())
-                print(f"Datos combinados guardados en {output_key}")
-            else:
-                print(f"No se encontraron coincidencias en los datos combinados para el año {year}.")
-        else:
+        key = f'processed_data/crop_productivity_{year}.csv'
+        df_maize = download_csv_from_s3(key)
+        
+        if df_maize is None:
             print(f"No se pudieron cargar los datos de maíz para el año {year}.")
             continue
+
+        df_maize['year_crop'] = pd.to_datetime(df_maize['time']).dt.year
+
+        # Filtrar los datos agroclimáticos solo para el año correspondiente
+        df_agroclimatic_filtered = filter_agroclimatic_data_by_year(df_agroclimatic, year)
+        
+        if df_agroclimatic_filtered.empty:
+            print(f"Advertencia: No se encontraron datos agroclimáticos para el año {year}.")
+            continue
+
+        # Combinar los datos de maíz con los datos agroclimáticos usando lat, lon, y año
+        df_combined = pd.merge(df_maize, df_agroclimatic_filtered, how='inner', on=['lat', 'lon'])
+        df_combined.drop(columns=['year_crop', 'year_agro'], inplace=True)
+        
+        output_key = f'Merged_data/processed_data/crop_and_agroclimatic_data_{year}.csv'
+        upload_dataframe_to_s3(df_combined, output_key)
+        
+        print(f"Datos combinados para el año {year} subidos a {output_key}")
+
+    # Crear un archivo para los años futuros
+    future_years_key = 'Merged_data/processed_data/crop_and_agroclimatic_data_future.csv'
+    future_data = df_agroclimatic[df_agroclimatic['year_agro'] > 2023]
+    future_data.drop(columns=['year_agro'], inplace=True)
+    upload_dataframe_to_s3(future_data, future_years_key)
 
 if __name__ == "__main__":
     main()
