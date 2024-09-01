@@ -42,6 +42,18 @@ def upload_dataframe_to_s3(df, s3_key):
     except Exception as e:
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
+def merge_with_tolerance(df1, df2, tol=0.1):
+    """Realizar un merge aproximado usando merge_asof basado en la latitud, longitud y año."""
+    
+    # Ordenar por latitud, longitud y año
+    df1 = df1.sort_values(by=['lat', 'lon', 'year'])
+    df2 = df2.sort_values(by=['lat', 'lon', 'year'])
+
+    # Realizar el merge_asof para aproximación
+    merged_df = pd.merge_asof(df1, df2, on=['lat', 'lon', 'year'], tolerance=tol, direction='nearest')
+
+    return merged_df
+
 def main():
     # Claves correctas para los archivos en S3
     agroclimatic_data_key = 'agroclimatic_indicators/processed/agroclimatic_indicators_2019_2030.csv'
@@ -93,8 +105,8 @@ def main():
                 print(f"Advertencia: No se encontraron datos agroclimáticos para el año {year}.")
                 continue
             
-            # Realizar la unión (merge) por 'lat', 'lon', y 'year'
-            df_combined = pd.merge(df_maize, df_agroclimatic_filtered, on=['lat', 'lon', 'year'], how='inner')
+            # Realizar la unión (merge) con tolerancia en las coordenadas
+            df_combined = merge_with_tolerance(df_maize, df_agroclimatic_filtered, tol=0.1)
             
             # Verificar si la combinación resultó en un DataFrame vacío
             if df_combined.empty:
