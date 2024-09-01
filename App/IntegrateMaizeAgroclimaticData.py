@@ -43,14 +43,27 @@ def upload_dataframe_to_s3(df, s3_key):
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
 def merge_with_tolerance(df1, df2, tol=0.5):
-    """Realizar un merge aproximado basado solo en la latitud y longitud con una tolerancia de 0.5."""
+    """Realizar un merge aproximado basado en la latitud y longitud con una tolerancia de 0.5."""
     
-    # Ordenar por latitud y longitud
-    df1 = df1.sort_values(by=['lat', 'lon'])
-    df2 = df2.sort_values(by=['lat', 'lon'])
-
-    # Realizar el merge_asof para aproximación
-    merged_df = pd.merge_asof(df1, df2, on=['lat', 'lon'], tolerance=tol, direction='nearest')
+    # Crear columnas adicionales con las latitudes y longitudes redondeadas
+    df1['lat_rounded'] = df1['lat'].round(1)
+    df1['lon_rounded'] = df1['lon'].round(1)
+    df2['lat_rounded'] = df2['lat'].round(1)
+    df2['lon_rounded'] = df2['lon'].round(1)
+    
+    # Realizar la unión (merge) basada en las coordenadas redondeadas
+    merged_df = pd.merge(df1, df2, on=['lat_rounded', 'lon_rounded'], suffixes=('_crop', '_agro'))
+    
+    # Filtrar los resultados para aplicar la tolerancia en las coordenadas reales
+    condition = (
+        (abs(merged_df['lat_crop'] - merged_df['lat_agro']) <= tol) &
+        (abs(merged_df['lon_crop'] - merged_df['lon_agro']) <= tol)
+    )
+    
+    merged_df = merged_df[condition]
+    
+    # Limpiar las columnas auxiliares
+    merged_df.drop(columns=['lat_rounded', 'lon_rounded'], inplace=True)
 
     return merged_df
 
