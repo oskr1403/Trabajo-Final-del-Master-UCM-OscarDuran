@@ -41,7 +41,7 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         print(f"Error al descargar y extraer {s3_key} desde S3: {str(e)}")
         return None
 
-def process_single_file(s3_key, variable_name, output_dir='/tmp'):
+def process_single_file(s3_key, variable_name, year, output_dir='/tmp'):
     """Procesar un único archivo ZIP de S3, extraer y filtrar los valores no nulos de una variable."""
     extract_path = download_and_extract_zip_from_s3(s3_key, extract_to=output_dir)
     
@@ -51,6 +51,9 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp'):
             for file in extracted_files:
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
+
+                # Filtrar los datos por el año específico
+                ds = ds.sel(time=slice(f'{year}-01-01', f'{year}-12-31'))
 
                 # Verificar si la variable existe en el dataset
                 if variable_name not in ds.variables:
@@ -121,7 +124,7 @@ def main():
         for file_template, variable_name in file_to_variable_template.items():
             s3_file = file_template.format(year=year)
             s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-            df = process_single_file(s3_key, variable_name)
+            df = process_single_file(s3_key, variable_name, year)
             if not df.empty:
                 dfs.append(df)
 
