@@ -41,43 +41,36 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         print(f"Error al descargar y extraer {s3_key} desde S3: {str(e)}")
         return None
 
-def process_single_file(s3_key, variable_name, output_dir='/tmp'):
-    """Procesar un único archivo ZIP de S3, extraer y filtrar los valores no nulos de una variable."""
-    extract_path = download_and_extract_zip_from_s3(s3_key, extract_to=output_dir)
+def process_single_file(extract_path, variable_name):
+    """Procesar los archivos NetCDF de una variable específica."""
+    extracted_files = [f for f in os.listdir(extract_path) if f.endswith('.nc')]
+    dfs = []
+    for file in extracted_files:
+        full_path = os.path.join(extract_path, file)
+        ds = xr.open_dataset(full_path)
+
+        # Verificar si la variable existe en el dataset
+        if variable_name not in ds.variables:
+            print(f"La variable '{variable_name}' no se encontró en el archivo {file}.")
+            continue
+
+        # Filtrar los valores no nulos de la variable de interés
+        df = ds[[variable_name, 'lat', 'lon', 'time']].to_dataframe().reset_index()
+        df = df.dropna(subset=[variable_name])  # Eliminar filas con valores nulos en la variable
+        
+        # Renombrar la columna de la variable
+        df.rename(columns={variable_name: 'value'}, inplace=True)
+        
+        # Añadir una columna para identificar la variable
+        df['variable'] = variable_name
+
+        dfs.append(df)
     
-    if extract_path:
-        extracted_files = [f for f in os.listdir(extract_path) if f.endswith('.nc')]
-        if extracted_files:
-            dfs = []
-            for file in extracted_files:
-                full_path = os.path.join(extract_path, file)
-                ds = xr.open_dataset(full_path)
-
-                # Verificar si la variable existe en el dataset
-                if variable_name not in ds.variables:
-                    print(f"La variable '{variable_name}' no se encontró en el archivo {file}.")
-                    continue
-
-                # Filtrar los valores no nulos de la variable de interés
-                df = ds[[variable_name, 'lat', 'lon', 'time']].to_dataframe().reset_index()
-                df = df.dropna(subset=[variable_name])  # Eliminar filas con valores nulos en la variable
-                
-                # Renombrar la columna de la variable
-                df.rename(columns={variable_name: 'value'}, inplace=True)
-                
-                # Añadir una columna para identificar la variable
-                df['variable'] = variable_name
-
-                dfs.append(df)
-            
-            if dfs:
-                combined_df = pd.concat(dfs, axis=0)
-                return combined_df
-        else:
-            print(f"No se encontraron archivos NetCDF en {extract_path}")
+    if dfs:
+        combined_df = pd.concat(dfs, axis=0)
+        return combined_df
     else:
-        print(f"Archivo para '{variable_name}' no encontrado en S3")
-    return pd.DataFrame()  # Retornar un DataFrame vacío si hay algún error
+        return pd.DataFrame()  # Retornar un DataFrame vacío si no se encontraron archivos o no hay datos no nulos
 
 def upload_dataframe_to_s3(df, filename):
     """Subir un DataFrame como archivo CSV a S3."""
@@ -110,7 +103,7 @@ def upload_db_to_s3(db_path, s3_key):
         print(f"Error al subir la base de datos a S3: {str(e)}")
 
 def main():
-    years = ["2023", "2022", "2021", "2020", "2019"]  # Años a procesar
+    years = ["2019", "2020", "2021", "2022", "2023"]  # Años a procesar
     db_name = "crop_productivity.db"  # Nombre del archivo de la base de datos
 
     # Diccionario con los archivos y las variables
@@ -126,15 +119,15 @@ def main():
         for file_template, variable_name in file_to_variable_template.items():
             s3_file = file_template.format(year=year)
             s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-            df = process_single_file(s3_key, variable_name)
-            if not df.empty:
-                dfs.append(df)
-
-        # Combinar los DataFrames en uno solo y asegurar que solo contiene datos del año correspondiente
+            extract_path = download_and_extract_zip_from_s3(s3_key)
+            if extract_path:
+                df = process_single_file(extract_path, variable_name)
+                if not df.empty:
+                    dfs.append(df)
+        
+        # Combinar los DataFrames en uno solo y asegurarse de que solo contiene datos del año correspondiente
         if dfs:
             combined_df = pd.concat(dfs, axis=0)
-            combined_df['time'] = pd.to_datetime(combined_df['time'])
-            combined_df = combined_df[combined_df['time'].dt.year == int(year)]
             print(f"DataFrame combinado para el año {year}:")
             print(combined_df.head())  # Mostrar solo las primeras filas
 
