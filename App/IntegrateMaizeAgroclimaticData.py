@@ -3,6 +3,7 @@ import pandas as pd
 from io import StringIO
 from botocore.exceptions import NoCredentialsError
 import sqlite3  # Añadir importación para SQLite
+import os  # Para verificar la base de datos local
 
 def download_csv_from_s3(s3_key):
     s3 = boto3.client('s3')
@@ -37,10 +38,22 @@ def save_to_sqlite(df, db_name, table_name):
     except Exception as e:
         print(f"Error al guardar los datos en SQLite: {str(e)}")
 
+# Función para subir la base de datos SQLite a S3
+def upload_db_to_s3(db_path, s3_key):
+    """Subir la base de datos SQLite a S3."""
+    try:
+        s3_client = boto3.client('s3')
+        s3_client.upload_file(db_path, 'trabajofinalmasterucmoscarduran', s3_key)
+        print(f"Base de datos SQLite subida a S3 en {s3_key}")
+    except Exception as e:
+        print(f"Error al subir la base de datos a S3: {str(e)}")
+
 def main():
     agroclimatic_key = 'agroclimatic_indicators/processed/agroclimatic_indicators_2019_2030.csv'
-    db_name = "crop_and_agroclimatic_data.db"  # Nombre de la base de datos
+    db_name = "crop_and_agroclimatic_data.db"  # Nombre de la base de datos local
+    s3_db_key = f'databases/{db_name}'  # Clave para subir la base de datos a S3
     df_agroclimatic = download_csv_from_s3(agroclimatic_key)
+    
     if df_agroclimatic is not None:
         print(f"Datos agroclimáticos cargados con {len(df_agroclimatic)} registros")
     else:
@@ -86,5 +99,8 @@ def main():
             print(f"No se pudieron cargar los datos de maíz para el año {year}.")
             continue
 
-if __name__ == "__main__":
-    main()
+    # Subir la base de datos SQLite a S3
+    if os.path.exists(db_name):
+        upload_db_to_s3(db_name, s3_db_key)
+    else:
+        print(f"La base de datos {db_name} no existe.")
