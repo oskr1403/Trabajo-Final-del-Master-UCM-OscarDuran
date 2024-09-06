@@ -2,6 +2,7 @@ import boto3
 import pandas as pd
 from io import StringIO
 from botocore.exceptions import NoCredentialsError
+import sqlite3  # Añadir importación para SQLite
 
 def download_csv_from_s3(s3_key):
     s3 = boto3.client('s3')
@@ -25,8 +26,20 @@ def merge_with_tolerance(df1, df2, tol=0.15):
     merged_df = pd.merge(df1, df2, on=['lat_rounded', 'lon_rounded'], how='inner', suffixes=('_crop', '_agro'))
     return merged_df
 
+# Función para guardar en SQLite
+def save_to_sqlite(df, db_name, table_name):
+    """Guardar un DataFrame en una tabla de SQLite."""
+    try:
+        conn = sqlite3.connect(db_name)
+        df.to_sql(table_name, conn, if_exists='append', index=False)
+        conn.close()
+        print(f"Datos guardados en la tabla '{table_name}' de la base de datos '{db_name}'")
+    except Exception as e:
+        print(f"Error al guardar los datos en SQLite: {str(e)}")
+
 def main():
     agroclimatic_key = 'agroclimatic_indicators/processed/agroclimatic_indicators_2019_2030.csv'
+    db_name = "crop_and_agroclimatic_data.db"  # Nombre de la base de datos
     df_agroclimatic = download_csv_from_s3(agroclimatic_key)
     if df_agroclimatic is not None:
         print(f"Datos agroclimáticos cargados con {len(df_agroclimatic)} registros")
@@ -55,7 +68,11 @@ def main():
             if not df_combined.empty:
                 print(f"Datos combinados para el año {year}:")
                 print(df_combined.head())
-                
+
+                # Guardar los datos combinados en la base de datos SQLite
+                table_name = f'crop_and_agroclimatic_data_{year}'
+                save_to_sqlite(df_combined, db_name, table_name)  # Guardar en SQLite
+
                 # Guardar los datos combinados en S3
                 output_key = f'Merged_data/processed_data/crop_and_agroclimatic_data_{year}.csv'
                 csv_buffer = StringIO()
