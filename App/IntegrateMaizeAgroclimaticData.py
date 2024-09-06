@@ -31,10 +31,11 @@ def merge_with_tolerance(df1, df2, tol=0.15):
 def save_to_sqlite(df, db_name, table_name):
     """Guardar un DataFrame en una tabla de SQLite."""
     try:
+        print(f"Guardando los datos en la tabla '{table_name}' de la base de datos '{db_name}'")
         conn = sqlite3.connect(db_name)
         df.to_sql(table_name, conn, if_exists='append', index=False)
         conn.close()
-        print(f"Datos guardados en la tabla '{table_name}' de la base de datos '{db_name}'")
+        print(f"Datos guardados exitosamente en '{table_name}'")
     except Exception as e:
         print(f"Error al guardar los datos en SQLite: {str(e)}")
 
@@ -42,9 +43,13 @@ def save_to_sqlite(df, db_name, table_name):
 def upload_db_to_s3(db_path, s3_key):
     """Subir la base de datos SQLite a S3."""
     try:
-        s3_client = boto3.client('s3')
-        s3_client.upload_file(db_path, 'trabajofinalmasterucmoscarduran', s3_key)
-        print(f"Base de datos SQLite subida a S3 en {s3_key}")
+        if os.path.exists(db_path):
+            print(f"Subiendo la base de datos '{db_path}' a S3 en '{s3_key}'")
+            s3_client = boto3.client('s3')
+            s3_client.upload_file(db_path, 'trabajofinalmasterucmoscarduran', s3_key)
+            print(f"Base de datos SQLite subida a S3 en '{s3_key}'")
+        else:
+            print(f"La base de datos '{db_path}' no existe.")
     except Exception as e:
         print(f"Error al subir la base de datos a S3: {str(e)}")
 
@@ -100,7 +105,9 @@ def main():
             continue
 
     # Subir la base de datos SQLite a S3
+    print(f"Verificando si la base de datos '{db_name}' fue creada correctamente.")
     if os.path.exists(db_name):
+        print(f"La base de datos '{db_name}' fue creada correctamente.")
         upload_db_to_s3(db_name, s3_db_key)
     else:
-        print(f"La base de datos {db_name} no existe.")
+        print(f"La base de datos '{db_name}' no existe.")
