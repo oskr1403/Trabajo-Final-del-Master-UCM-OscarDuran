@@ -90,7 +90,7 @@ def upload_dataframe_to_s3(df, filename):
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
 def main():
-    years = ["2019"]  # Años a procesar
+    years = ["2019","2020","2021","2022","2023"]  # Años a procesar
 
     # Diccionario con los archivos y las variables
     file_to_variable_template = {
