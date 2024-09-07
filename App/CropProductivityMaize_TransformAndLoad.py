@@ -40,7 +40,7 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         print(f"Error al descargar y extraer {s3_key} desde S3: {str(e)}")
         return None
 
-def process_single_file(s3_key, variable_name, output_dir='/tmp'):
+def process_single_file(s3_key, variable_name, output_dir='/tmp', expected_year=None):
     """Procesar un único archivo ZIP de S3, extraer y filtrar los valores no nulos de una variable."""
     extract_path = download_and_extract_zip_from_s3(s3_key, extract_to=output_dir)
     
@@ -56,10 +56,14 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp'):
                     print(f"La variable '{variable_name}' no se encontró en el archivo {file}.")
                     continue
 
-                # Filtrar los valores no nulos de la variable de interés
+                # Filtrar los valores no nulos de la variable de interés y filtrar por año
                 df = ds[[variable_name, 'lat', 'lon', 'time']].to_dataframe().reset_index()
                 df = df.dropna(subset=[variable_name])  # Eliminar filas con valores nulos en la variable
                 
+                # Filtrar por el año esperado en la columna 'time'
+                df['year'] = pd.to_datetime(df['time']).dt.year
+                df = df[df['year'] == int(expected_year)]  # Filtrar por el año correspondiente
+
                 # Renombrar la columna de la variable
                 df.rename(columns={variable_name: 'value'}, inplace=True)
                 
@@ -101,7 +105,7 @@ def main():
         for file_template, variable_name in file_to_variable_template.items():
             s3_file = file_template.format(year=year)
             s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-            df = process_single_file(s3_key, variable_name)
+            df = process_single_file(s3_key, variable_name, expected_year=year)
             if not df.empty:
                 dfs.append(df)
 
