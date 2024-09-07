@@ -51,6 +51,9 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp', expected_year=
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
 
+                # Mostrar las variables disponibles en el archivo
+                print(f"Variables disponibles en el archivo {file}: {list(ds.variables.keys())}")
+
                 # Verificar si la variable existe en el dataset
                 if variable_name not in ds.variables:
                     print(f"La variable '{variable_name}' no se encontró en el archivo {file}.")
