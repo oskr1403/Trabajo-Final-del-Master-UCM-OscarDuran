@@ -51,13 +51,10 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp', expected_year=
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
 
-                # Mostrar las variables disponibles en el archivo
-                print(f"Variables disponibles en el archivo {file}: {list(ds.variables.keys())}")
-
                 # Verificar si la variable existe en el dataset
                 if variable_name not in ds.variables:
-                    print(f"La variable '{variable_name}' no se encontró en el archivo {file}.")
-                    continue
+                    print(f"La variable '{variable_name}' no se encontró en el archivo {file}. Continuando con el siguiente archivo.")
+                    continue  # Saltar este archivo si no contiene la variable
 
                 # Filtrar los valores no nulos de la variable de interés y filtrar por año
                 df = ds[[variable_name, 'lat', 'lon', 'time']].to_dataframe().reset_index()
@@ -93,7 +90,7 @@ def upload_dataframe_to_s3(df, filename):
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
 def main():
-    years = ["2023", "2022", "2021", "2020", "2019"]  # Años a procesar
+    years = ["2019"]  # Años a procesar
 
     # Diccionario con los archivos y las variables
     file_to_variable_template = {
