@@ -46,15 +46,24 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp', expected_year=
     
     if extract_path:
         extracted_files = [f for f in os.listdir(extract_path) if f.endswith('.nc')]
+        variable_found = False
+        combined_df = pd.DataFrame()
+        
         if extracted_files:
             for file in extracted_files:
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
 
+                # Mostrar las variables disponibles en el archivo
+                print(f"Variables disponibles en el archivo {file}: {list(ds.variables.keys())}")
+
                 # Verificar si la variable existe en el dataset
                 if variable_name not in ds.variables:
                     print(f"La variable '{variable_name}' no se encontró en el archivo {file}. Continuando con el siguiente archivo.")
                     continue  # Saltar este archivo si no contiene la variable
+
+                # Si encontramos la variable, procedemos a procesar los datos
+                variable_found = True
 
                 # Filtrar los valores no nulos de la variable de interés y filtrar por año
                 df = ds[[variable_name, 'lat', 'lon', 'time']].to_dataframe().reset_index()
@@ -70,12 +79,18 @@ def process_single_file(s3_key, variable_name, output_dir='/tmp', expected_year=
                 # Añadir una columna para identificar la variable
                 df['variable'] = variable_name
 
-                return df
-        else:
-            print(f"No se encontraron archivos NetCDF en {extract_path}")
+                # Combinar los resultados de este archivo con el DataFrame combinado
+                combined_df = pd.concat([combined_df, df], ignore_index=True)
+
+        if not variable_found:
+            print(f"La variable '{variable_name}' no se encontró en ninguno de los archivos para el año {expected_year}.")
+            return pd.DataFrame()  # Retornar un DataFrame vacío si no se encontró la variable
+
+        return combined_df  # Retornar el DataFrame combinado con los datos de todos los archivos
+
     else:
         print(f"Archivo para '{variable_name}' no encontrado en S3")
-    return pd.DataFrame()  # Retornar un DataFrame vacío si hay algún error
+        return pd.DataFrame()  # Retornar un DataFrame vacío si hay algún error
 
 def upload_dataframe_to_s3(df, filename):
     """Subir un DataFrame como archivo CSV a S3."""
@@ -89,9 +104,8 @@ def upload_dataframe_to_s3(df, filename):
     except Exception as e:
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
-def main():
-    years = ["2021"]  # Años a procesar
-
+def process_year(year):
+    """Procesar un año específico y generar un archivo CSV"""
     # Diccionario con los archivos y las variables
     file_to_variable_template = {
         'crop_development_stage_year_{year}.zip': 'DVS',
@@ -99,26 +113,32 @@ def main():
         'total_weight_storage_organs_year_{year}.zip': 'TWSO'
     }
 
+    dfs = []
+
+    for file_template, variable_name in file_to_variable_template.items():
+        s3_file = file_template.format(year=year)
+        s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
+        df = process_single_file(s3_key, variable_name, expected_year=year)
+        if not df.empty:
+            dfs.append(df)
+
+    # Combinar los DataFrames en uno solo si hay datos
+    if dfs:
+        combined_df = pd.concat(dfs, axis=0)
+        print(f"DataFrame combinado para el año {year}:")
+        print(combined_df.head())  # Mostrar solo las primeras filas
+
+        # Subir el DataFrame combinado a S3
+        upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
+    else:
+        print(f"No se pudieron procesar archivos o no hay datos no nulos para el año {year}.")
+
+def main():
+    years = ["2023", "2022", "2021", "2020", "2019"]  # Años a procesar
+
     for year in years:
-        dfs = []
-
-        for file_template, variable_name in file_to_variable_template.items():
-            s3_file = file_template.format(year=year)
-            s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-            df = process_single_file(s3_key, variable_name, expected_year=year)
-            if not df.empty:
-                dfs.append(df)
-
-        # Combinar los DataFrames en uno solo
-        if dfs:
-            combined_df = pd.concat(dfs, axis=0)
-            print(f"DataFrame combinado para el año {year}:")
-            print(combined_df.head())  # Mostrar solo las primeras filas
-
-            # Subir el DataFrame combinado a S3
-            upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
-        else:
-            print(f"No se pudieron procesar archivos o no hay datos no nulos para el año {year}.")
+        print(f"Procesando el año {year}...")
+        process_year(year)
 
 if __name__ == "__main__":
     main()
