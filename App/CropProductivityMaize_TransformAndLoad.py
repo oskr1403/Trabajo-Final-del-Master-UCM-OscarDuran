@@ -4,7 +4,6 @@ import tempfile
 import zipfile
 import xarray as xr
 import pandas as pd
-import sqlite3
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -41,7 +40,7 @@ def download_and_extract_zip_from_s3(s3_key, extract_to='/tmp'):
         print(f"Error al descargar y extraer {s3_key} desde S3: {str(e)}")
         return None
 
-def process_single_file(s3_key, variable_name, year, output_dir='/tmp'):
+def process_single_file(s3_key, variable_name, output_dir='/tmp'):
     """Procesar un único archivo ZIP de S3, extraer y filtrar los valores no nulos de una variable."""
     extract_path = download_and_extract_zip_from_s3(s3_key, extract_to=output_dir)
     
@@ -51,9 +50,6 @@ def process_single_file(s3_key, variable_name, year, output_dir='/tmp'):
             for file in extracted_files:
                 full_path = os.path.join(extract_path, file)
                 ds = xr.open_dataset(full_path)
-
-                # Filtrar los datos por el año específico
-                ds = ds.sel(time=slice(f'{year}-01-01', f'{year}-12-31'))
 
                 # Verificar si la variable existe en el dataset
                 if variable_name not in ds.variables:
@@ -89,27 +85,8 @@ def upload_dataframe_to_s3(df, filename):
     except Exception as e:
         print(f"Error al subir el DataFrame a S3: {str(e)}")
 
-def save_to_sqlite(df, db_name, table_name):
-    """Guardar un DataFrame en una tabla de SQLite."""
-    try:
-        conn = sqlite3.connect(db_name)
-        df.to_sql(table_name, conn, if_exists='append', index=False)
-        conn.close()
-        print(f"Datos guardados en la tabla '{table_name}' de la base de datos '{db_name}'")
-    except Exception as e:
-        print(f"Error al guardar los datos en SQLite: {str(e)}")
-
-def upload_db_to_s3(db_path, s3_key):
-    """Subir la base de datos SQLite a S3."""
-    try:
-        s3_client.upload_file(db_path, BUCKET_NAME, s3_key)
-        print(f"Base de datos SQLite subida a S3 en {s3_key}")
-    except Exception as e:
-        print(f"Error al subir la base de datos a S3: {str(e)}")
-
 def main():
     years = ["2023", "2022", "2021", "2020", "2019"]  # Años a procesar
-    db_name = "crop_productivity.db"  # Nombre del archivo de la base de datos
 
     # Diccionario con los archivos y las variables
     file_to_variable_template = {
@@ -124,7 +101,7 @@ def main():
         for file_template, variable_name in file_to_variable_template.items():
             s3_file = file_template.format(year=year)
             s3_key = f'crop_productivity_indicators/{year}/{s3_file}'
-            df = process_single_file(s3_key, variable_name, year)
+            df = process_single_file(s3_key, variable_name)
             if not df.empty:
                 dfs.append(df)
 
@@ -134,18 +111,10 @@ def main():
             print(f"DataFrame combinado para el año {year}:")
             print(combined_df.head())  # Mostrar solo las primeras filas
 
-            # Guardar en la base de datos SQLite
-            table_name = f'crop_productivity_{year}'
-            save_to_sqlite(combined_df, db_name, table_name)
-
             # Subir el DataFrame combinado a S3
             upload_dataframe_to_s3(combined_df, f'crop_productivity_{year}.csv')
         else:
             print(f"No se pudieron procesar archivos o no hay datos no nulos para el año {year}.")
-
-    # Subir la base de datos SQLite a S3
-    s3_db_key = 'databases/crop_productivity.db'
-    upload_db_to_s3(db_name, s3_db_key)
 
 if __name__ == "__main__":
     main()
