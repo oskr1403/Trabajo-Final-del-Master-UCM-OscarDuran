@@ -1,7 +1,9 @@
 name: Crop Productivity Analysis DB Pipeline
 
 on:
-  workflow_dispatch:  # Esto te permite ejecutar el workflow manualmente
+  push:
+    branches:
+      - analysis-branch
 
 jobs:
   analyze-db:
@@ -19,10 +21,4 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install sqlite3 pandas boto3 scikit-learn matplotlib seaborn python-dotenv
-
-    - name: Run Data Analysis on SQLite DB
-      run: python App/data_analysis_db.py
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        pip install pandas boto3 scikit-learn matplotlib seaborn python-dotenv  # Eliminar 'sqlite3' de la lista
