@@ -18,14 +18,29 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install setuptools xarray cdsapi matplotlib boto3 python-dotenv numba netCDF4 scikit-learn seaborn pandas
+        pip install setuptools pyodbc xarray cdsapi matplotlib boto3 python-dotenv numba netCDF4 scikit-learn seaborn pandas
+      
+
+    - name: Install SQL Server ODBC driver (Ubuntu)
+      run: |
+        sudo apt-get install -y odbcinst1debian2 unixodbc unixodbc-dev
+        sudo apt-get install -y mssql-tools odbcinst
+        echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+        source ~/.bashrc
+
+    - name: Install the ODBC Driver for SQL Server
+      run: |
+        sudo apt-get update && sudo apt-get install -y curl apt-transport-https
+        curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+        sudo apt-get update
+        sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
 
     - name: Copy .cdsapirc to home directory
       run: cp App/.cdsapirc ~/.cdsapirc
-      
-    - name: Crop Productivity Maize - Transform and Load
-      working-directory: App
-      run: python CropProductivityMaize_TransformAndLoad.py
+
+    - name: Generate SQL Database and Upload .bak to S3
+      run: python App/generate_sql_backup.py
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
