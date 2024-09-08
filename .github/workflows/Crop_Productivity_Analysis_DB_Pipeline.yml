@@ -1,12 +1,7 @@
-name: Crop_Productivity_Analysis_DB_Pipeline
+name: Crop Productivity Analysis DB Pipeline
 
-# Ejecutar cada martes a medianoche (00:00)
 on:
-  schedule:
-    - cron: '0 0 * * 2'  # Esto lo ejecuta cada martes
-  push:
-    branches:
-      - main
+  workflow_dispatch:  # Esto te permite ejecutar el workflow manualmente
 
 jobs:
   analyze-db:
