@@ -1,6 +1,13 @@
 name: Crop Productivity Maize Pipeline
 
-on: [push]
+# Ejecutar cada lunes a medianoche (00:00)
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Sintaxis: 'minuto hora día_mes mes día_semana'
+
+  push:  # Mantener la opción de ejecutarse también cuando se haga push
+    branches:
+      - main
 
 jobs:
   build:
@@ -22,17 +29,17 @@ jobs:
 
     - name: Copy .cdsapirc to home directory
       run: cp App/.cdsapirc ~/.cdsapirc
-
-    - name: Crop Productivity Maize - Extract
-      working-directory: App
-      run: python CropProductivityMaize_Extract.py
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       
     - name: Crop Productivity Maize - Transform and Load
       working-directory: App
       run: python CropProductivityMaize_TransformAndLoad.py
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      
+    - name: SQLite - Create and Upload
+      working-directory: App
+      run: python SQLiteToS3.py
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
