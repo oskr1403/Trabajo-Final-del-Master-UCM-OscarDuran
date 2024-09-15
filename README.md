@@ -1,12 +1,17 @@
 Links Importantes
+
 Descarga manual de la información de Copernicus:
 https://cds-beta.climate.copernicus.eu/datasets/sis-agroproductivity-indicators?tab=download
+
 Repositorio en GitHub con el código del proyecto:
 https://github.com/oskr1403/Trabajo-Final-del-Master-UCM-OscarDuran
+
 Carpeta del pipeline en GitHub:
 https://github.com/oskr1403/Trabajo-Final-del-Master-UCM-OscarDuran/tree/main/.github/workflows
+
 Carpeta de los scripts de extracción, transformación y carga, y creación de la base de datos:
 https://github.com/oskr1403/Trabajo-Final-del-Master-UCM-OscarDuran/tree/main/App
+
 Descarga de la base de datos consolidada en formato .db desde S3:
 https://trabajofinalmasterucmoscarduran.s3.us-east-2.amazonaws.com/processed_data/crop_productivity.db
  
