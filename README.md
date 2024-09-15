@@ -15,23 +15,6 @@ https://github.com/oskr1403/Trabajo-Final-del-Master-UCM-OscarDuran/tree/main/Ap
 Descarga de la base de datos consolidada en formato .db desde S3:
 https://trabajofinalmasterucmoscarduran.s3.us-east-2.amazonaws.com/processed_data/crop_productivity.db
  
-Agradecimientos
-
-•	En primer lugar, quiero expresar mi más sincero agradecimiento a Dios, mi Padre y Todopoderoso, quien me da la vida cada día y me ha brindado la fortaleza para superar todos los desafíos que este camino ha presentado.
-
-•	A mi padre, Mainor Durán Blanco, que en paz descanse, quien siempre creyó en mí y supo, antes de partir, que iniciaría esta maestría. Su alegría y orgullo por este logro me han acompañado en cada paso de este recorrido, y es a él a quien dedico este proyecto.
-
-•	Quiero agradecer profundamente a mi madre, Janilu Azofeifa Valverde, y a mis hermanas, Daniela Durán Azofeifa y Carolina Durán Azofeifa, quienes me han brindado un apoyo incondicional a lo largo de estos meses. Su amor y comprensión han sido un pilar fundamental en mi vida personal y académica.
-
-•	Mi más sincero agradecimiento a mi mentor, Giovanni Solano Porras, por su guía y apoyo continuo en todo este proceso. Su orientación ha sido clave en el desarrollo de este proyecto.
-
-•	También quiero reconocer el aporte invaluable de cada uno de los profesores y tutores de los cursos y del Trabajo Final de Máster. Su dedicación y compromiso me han permitido adquirir las herramientas necesarias para alcanzar este logro.
-
-•	A VMware, agradezco por el apoyo financiero a través de su plan de subsidio de carrera, que me permitió afrontar los retos económicos de esta maestría y concentrarme en mi desarrollo profesional.
-
-•	Finalmente, agradezco a todos los que, de una forma u otra, han sido parte de este camino. Estoy profundamente agradecido por cada consejo, cada palabra de aliento y cada oportunidad de crecimiento que me han brindado
-
-
 
 Introducción
 Este proyecto de creación de un pipeline de preparación o disponibilización de datos busca desarrollar un sistema que automatice la elaboración y preparación de datos con respecto a la productividad del maíz. La idea principal es integrar indicadores clave y que los datos queden listos para ser analizados de forma eficiente.
@@ -245,5 +228,24 @@ Carpeta de los scripts de extracción, transformación y carga, y creación de l
 https://github.com/oskr1403/Trabajo-Final-del-Master-UCM-OscarDuran/tree/main/App
 Descarga de la base de datos consolidada en formato .db desde S3:
 https://trabajofinalmasterucmoscarduran.s3.us-east-2.amazonaws.com/processed_data/crop_productivity.db
+
+Agradecimientos
+
+•	En primer lugar, quiero expresar mi más sincero agradecimiento a Dios, mi Padre y Todopoderoso, quien me da la vida cada día y me ha brindado la fortaleza para superar todos los desafíos que este camino ha presentado.
+
+•	A mi padre, Mainor Durán Blanco, que en paz descanse, quien siempre creyó en mí y supo, antes de partir, que iniciaría esta maestría. Su alegría y orgullo por este logro me han acompañado en cada paso de este recorrido, y es a él a quien dedico este proyecto.
+
+•	Quiero agradecer profundamente a mi madre, Janilu Azofeifa Valverde, y a mis hermanas, Daniela Durán Azofeifa y Carolina Durán Azofeifa, quienes me han brindado un apoyo incondicional a lo largo de estos meses. Su amor y comprensión han sido un pilar fundamental en mi vida personal y académica.
+
+•	Mi más sincero agradecimiento a mi mentor, Giovanni Solano Porras, por su guía y apoyo continuo en todo este proceso. Su orientación ha sido clave en el desarrollo de este proyecto.
+
+•	También quiero reconocer el aporte invaluable de cada uno de los profesores y tutores de los cursos y del Trabajo Final de Máster. Su dedicación y compromiso me han permitido adquirir las herramientas necesarias para alcanzar este logro.
+
+•	A VMware, agradezco por el apoyo financiero a través de su plan de subsidio de carrera, que me permitió afrontar los retos económicos de esta maestría y concentrarme en mi desarrollo profesional.
+
+•	Finalmente, agradezco a todos los que, de una forma u otra, han sido parte de este camino. Estoy profundamente agradecido por cada consejo, cada palabra de aliento y cada oportunidad de crecimiento que me han brindado
+
+
+
 
 
